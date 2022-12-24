@@ -4502,6 +4502,10 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			text_color, VT_Int, 3, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "height",
+			text_height, VT_Int, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err

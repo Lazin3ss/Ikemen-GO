@@ -2356,7 +2356,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok2 {
 			userDataError(l, 2, fnt)
 		}
-		ts.fnt = fnt
+		ts.SetFont(fnt)
 		return 0
 	})
 	luaRegister(l, "textImgSetPos", func(*lua.LState) int {
@@ -2392,6 +2392,14 @@ func systemScriptInit(l *lua.LState) {
 		}
 		ts.SetWindow(float32(numArg(l, 2))/sys.luaSpriteScale+sys.luaSpriteOffsetX, float32(numArg(l, 3))/sys.luaSpriteScale,
 			float32(numArg(l, 4))/sys.luaSpriteScale, float32(numArg(l, 5))/sys.luaSpriteScale)
+		return 0
+	})
+	luaRegister(l, "textImgSetHeight", func(*lua.LState) int {
+		ts, ok := toUserData(l, 1).(*TextSprite)
+		if !ok {
+			userDataError(l, 1, ts)
+		}
+		ts.height = int16(Clamp(int32(numArg(l, 2)), 0, 32767))
 		return 0
 	})
 	luaRegister(l, "toggleClsnDraw", func(*lua.LState) int {

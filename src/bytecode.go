@@ -7792,6 +7792,7 @@ const (
 	text_pos
 	text_scale
 	text_color
+	text_height
 	text_redirectid
 )
 
@@ -7803,6 +7804,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	var sn int = -1
 	var fflg bool
 	var fnt int = -1
+	var height int16 = -1
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case text_removetime:
@@ -7845,6 +7847,8 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				}
 			}
 			ts.SetColor(r, g, b)
+		case text_height:
+			height = int16(Clamp(exp[0].evalI(c), 0, 32767))
 		case text_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -7868,9 +7872,13 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		fntList = sys.lifebar.fnt
 	}
 	if fnt >= 0 && fnt < len(fntList) && fntList[fnt] != nil {
-		ts.fnt = fntList[fnt]
+		ts.SetFont(fntList[fnt])
 	} else {
-		ts.fnt = sys.debugFont.fnt
+		ts.SetFont(sys.debugFont.fnt)
+	}
+	// set line height
+	if height > -1 {
+		ts.height = height
 	}
 	sys.lifebar.textsprite = append(sys.lifebar.textsprite, ts)
 	return false

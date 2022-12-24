@@ -548,6 +548,7 @@ type TextSprite struct {
 	frgba            [4]float32 //ttf fonts
 	removetime       int32      //text sctrl
 	layerno          int16      //text sctrl
+	height           int16
 }
 
 func NewTextSprite() *TextSprite {
@@ -564,6 +565,13 @@ func NewTextSprite() *TextSprite {
 	}
 	ts.palfx.setColor(255, 255, 255)
 	return ts
+}
+
+func (ts *TextSprite) SetFont(f *Fnt) {
+	if f != nil {
+		ts.fnt = f
+		ts.height = int16(Clamp(int32(ts.fnt.Size[1]), 0, 32767))
+	}
 }
 
 func (ts *TextSprite) SetWindow(x, y, w, h float32) {
@@ -600,7 +608,7 @@ func (ts *TextSprite) Draw() {
 			} else {
 				ts.fnt.DrawText(txt, ts.x, y, ts.xscl, ts.yscl, ts.bank, ts.align, &ts.window, ts.palfx)
 			}
-			y += float32(ts.fnt.Size[1]) * ts.yscl
+			y += float32(ts.height) * ts.yscl
 		}
 	}
 }
