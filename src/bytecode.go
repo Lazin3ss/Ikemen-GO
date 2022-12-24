@@ -7858,9 +7858,9 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	// text assignment
 	spl := sys.stringPool[sys.workingState.playerNo].List
 	if sn >= 0 && sn < len(spl) {
-		ts.text = OldSprintf(spl[sn], params...)
+		ts.SetText(OldSprintf(spl[sn], params...))
 	} else {
-		ts.text = OldSprintf("%v", params...)
+		ts.SetText(OldSprintf("%v", params...))
 	}
 	// font assignment
 	fntList := crun.gi().fnt

@@ -539,7 +539,7 @@ func (f *Fnt) DrawTtf(txt string, x, y, xscl, yscl float32, align int32,
 }
 
 type TextSprite struct {
-	text             string
+	text             []string
 	fnt              *Fnt
 	bank, align      int32
 	x, y, xscl, yscl float32
@@ -579,12 +579,28 @@ func (ts *TextSprite) SetColor(r, g, b int32) {
 		float32(b) / 255, 1.0}
 }
 
+func (ts *TextSprite) SetText(txt string) {
+	ts.text = nil
+	if len(txt) == 0 {
+		return
+	}
+	set := strings.Split(txt, "\n")
+	if len(set) == 1 {
+		set = strings.Split(txt, "\\n")
+	}
+	ts.text = set
+}
+
 func (ts *TextSprite) Draw() {
-	if !sys.frameSkip && ts.fnt != nil {
-		if ts.fnt.Type == "truetype" {
-			ts.fnt.DrawTtf(ts.text, ts.x, ts.y, ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba)
-		} else {
-			ts.fnt.DrawText(ts.text, ts.x, ts.y, ts.xscl, ts.yscl, ts.bank, ts.align, &ts.window, ts.palfx)
+	if !sys.frameSkip && ts.fnt != nil && ts.text != nil {
+		y := ts.y
+		for _, txt := range ts.text {
+			if ts.fnt.Type == "truetype" {
+				ts.fnt.DrawTtf(txt, ts.x, y, ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba)
+			} else {
+				ts.fnt.DrawText(txt, ts.x, y, ts.xscl, ts.yscl, ts.bank, ts.align, &ts.window, ts.palfx)
+			}
+			y += float32(ts.fnt.Size[1]) * ts.yscl
 		}
 	}
 }

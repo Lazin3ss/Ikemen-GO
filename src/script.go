@@ -2382,7 +2382,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, ts)
 		}
-		ts.text = strArg(l, 2)
+		ts.SetText(strArg(l, 2))
 		return 0
 	})
 	luaRegister(l, "textImgSetWindow", func(*lua.LState) int {
