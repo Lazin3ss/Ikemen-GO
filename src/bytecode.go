@@ -2080,6 +2080,8 @@ type StateBlock struct {
 	ignorehitpause      int32
 	ctrlsIgnorehitpause bool
 	loopBlock           bool
+	loopType            int
+	forRange            [2]int32
 	trigger             BytecodeExp
 	elseBlock           *StateBlock
 	ctrls               []StateController
@@ -2109,9 +2111,25 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 	}
 	sys.workingChar = c
 	if b.loopBlock {
+		i := b.forRange[0]
 		for {
-			if len(b.trigger) > 0 && !b.trigger.evalB(c) {
-				break
+			if b.loopType == 1 {
+				if b.forRange[0] <= b.forRange[1] {
+					i++
+					if i > b.forRange[1] + 1 {
+						break
+					}
+				} else {
+					i--
+					if i < b.forRange[1] - 1 {
+						break
+					}
+				}
+			} else if b.loopType == 2 {
+				// While block needs to eval conditional indefinitely
+				if len(b.trigger) > 0 && !b.trigger.evalB(c) {
+					break
+				}
 			}
 			for _, sc := range b.ctrls {
 				switch sc.(type) {

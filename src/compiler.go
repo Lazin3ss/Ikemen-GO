@@ -4625,8 +4625,24 @@ func (c *Compiler) loopBlock(line *string, root bool,
 	bl.loopBlock = true
 	switch c.token {
 		case "for":
-			// TODO: make for loop
+			bl.loopType = 1
+			c.scan(line)
+			if begin, err := c.integer2(line); err != nil {
+				return nil, err
+			} else {
+				bl.forRange[0] = begin
+			}
+			if err := c.needToken(","); err != nil {
+				return nil, err
+			}
+			c.scan(line)
+			if end, err := c.integer2(line); err != nil {
+				return nil, err
+			} else {
+				bl.forRange[1] = end
+			}
 		case "while":
+			bl.loopType = 2
 			expr, _, err := c.readSentence(line)
 			if err != nil {
 				return nil, err
@@ -4636,9 +4652,9 @@ func (c *Compiler) loopBlock(line *string, root bool,
 				return nil, err
 			}
 			c.token = otk
-			if err := c.needToken("{"); err != nil {
-				return nil, err
-			}
+	}
+	if err := c.needToken("{"); err != nil {
+		return nil, err
 	}
 	if err := c.stateBlock(line, bl, false,
 		sbc, &bl.ctrls, numVars); err != nil {
