@@ -4619,6 +4619,39 @@ func (c *Compiler) callFunc(line *string, root bool,
 	c.scan(line)
 	return nil
 }
+func (c *Compiler) loopBlock(line *string, root bool,
+	sbc *StateBytecode, numVars *int32) (*StateBlock, error) {
+	bl := newStateBlock()
+	bl.loopBlock = true
+	switch c.token {
+		case "for":
+			// TODO: make for loop
+		case "while":
+			expr, _, err := c.readSentence(line)
+			if err != nil {
+				return nil, err
+			}
+			otk := c.token
+			if bl.trigger, err = c.fullExpression(&expr, VT_Bool); err != nil {
+				return nil, err
+			}
+			c.token = otk
+			if err := c.needToken("{"); err != nil {
+				return nil, err
+			}
+	}
+	if err := c.stateBlock(line, bl, false,
+		sbc, &bl.ctrls, numVars); err != nil {
+		return nil, err
+	}
+	if root {
+		if err := c.statementEnd(line); err != nil {
+			return nil, err
+		}
+	}
+	c.scan(line)
+	return bl, nil
+}
 func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 	sbc *StateBytecode, ctrls *[]StateController, numVars *int32) error {
 	c.scan(line)
@@ -4650,6 +4683,13 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 		case "call":
 			if err := c.callFunc(line, root, ctrls, nil); err != nil {
 				return err
+			}
+			continue
+		case "for", "while":
+			if sbl, err := c.loopBlock(line, root, sbc, numVars); err != nil {
+				return err
+			} else {
+				*ctrls = append(*ctrls, *sbl)
 			}
 			continue
 		case "let":

@@ -381,8 +381,6 @@ const (
 	OC_ex_winko
 	OC_ex_wintime
 	OC_ex_winperfect
-	OC_ex_winspecial
-	OC_ex_winhyper
 	OC_ex_lose
 	OC_ex_loseko
 	OC_ex_losetime
@@ -393,8 +391,6 @@ const (
 	OC_ex_roundsexisted
 	OC_ex_ishometeam
 	OC_ex_tickspersecond
-	OC_ex_majorversion
-	OC_ex_drawpalno
 	OC_ex_const240p
 	OC_ex_const480p
 	OC_ex_const720p
@@ -451,6 +447,7 @@ const (
 	OC_ex_dizzy
 	OC_ex_dizzypoints
 	OC_ex_dizzypointsmax
+	OC_ex_drawpalno
 	OC_ex_fighttime
 	OC_ex_firstattack
 	OC_ex_framespercount
@@ -469,6 +466,7 @@ const (
 	OC_ex_isassertedglobal
 	OC_ex_ishost
 	OC_ex_localscale
+	OC_ex_majorversion
 	OC_ex_maparray
 	OC_ex_max
 	OC_ex_min
@@ -497,6 +495,8 @@ const (
 	OC_ex_timeelapsed
 	OC_ex_timeremaining
 	OC_ex_timetotal
+	OC_ex_winhyper
+	OC_ex_winspecial
 	OC_ex_pos_z
 	OC_ex_vel_z
 	OC_ex_jugglepoints
@@ -2079,6 +2079,7 @@ type StateBlock struct {
 	persistentIndex     int32
 	ignorehitpause      int32
 	ctrlsIgnorehitpause bool
+	loopBlock           bool
 	trigger             BytecodeExp
 	elseBlock           *StateBlock
 	ctrls               []StateController
@@ -2107,22 +2108,40 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 		}
 	}
 	sys.workingChar = c
-	if len(b.trigger) > 0 && !b.trigger.evalB(c) {
-		if b.elseBlock != nil {
-			return b.elseBlock.Run(c, ps)
-		}
-		return false
-	}
-	for _, sc := range b.ctrls {
-		switch sc.(type) {
-		case StateBlock:
-		default:
-			if !b.ctrlsIgnorehitpause && c.hitPause() {
-				continue
+	if b.loopBlock {
+		for {
+			if len(b.trigger) > 0 && !b.trigger.evalB(c) {
+				break
+			}
+			for _, sc := range b.ctrls {
+				switch sc.(type) {
+				case StateBlock:
+				default:
+					if !b.ctrlsIgnorehitpause && c.hitPause() {
+						continue
+					}
+				}
+				sc.Run(c, ps)
 			}
 		}
-		if sc.Run(c, ps) {
-			return true
+	} else {
+		if len(b.trigger) > 0 && !b.trigger.evalB(c) {
+			if b.elseBlock != nil {
+				return b.elseBlock.Run(c, ps)
+			}
+			return false
+		}
+		for _, sc := range b.ctrls {
+			switch sc.(type) {
+			case StateBlock:
+			default:
+				if !b.ctrlsIgnorehitpause && c.hitPause() {
+					continue
+				}
+			}
+			if sc.Run(c, ps) {
+				return true
+			}
 		}
 	}
 	if b.persistentIndex >= 0 {
