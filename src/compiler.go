@@ -4436,12 +4436,13 @@ func (c *Compiler) scanStateDef(line *string, constants map[string]float32) (int
 	return v, err
 }
 func (c *Compiler) subBlock(line *string, root bool,
-	sbc *StateBytecode, numVars *int32, ignorehitpause bool) (*StateBlock, error) {
+	sbc *StateBytecode, numVars *int32, ignorehitpause, nestedInLoop bool) (*StateBlock, error) {
 	bl := newStateBlock()
-	// Inherit ignorehitpause from parent block
+	// Inherit ignorehitpause/loop attr from parent block
 	if ignorehitpause {
 		bl.ignorehitpause, bl.ctrlsIgnorehitpause = -1, true
 	}
+	bl.nestedInLoop = nestedInLoop
 	ihpRead := false
 	for {
 		switch c.token {
@@ -4533,7 +4534,7 @@ func (c *Compiler) subBlock(line *string, root bool,
 		c.scan(line)
 		var err error
 		if bl.elseBlock, err = c.subBlock(line, root,
-			sbc, numVars, ignorehitpause); err != nil {
+			sbc, numVars, ignorehitpause, nestedInLoop); err != nil {
 			return nil, err
 		}
 		if bl.elseBlock.ignorehitpause >= -1 {
@@ -4623,9 +4624,10 @@ func (c *Compiler) loopBlock(line *string, root bool,
 	sbc *StateBytecode, numVars *int32) (*StateBlock, error) {
 	bl := newStateBlock()
 	bl.loopBlock = true
+	bl.nestedInLoop = true
 	switch c.token {
 		case "for":
-			bl.loopType = 1
+			bl.forLoop = true
 			c.scan(line)
 			if begin, err := c.integer2(line); err != nil {
 				return nil, err
@@ -4642,7 +4644,6 @@ func (c *Compiler) loopBlock(line *string, root bool,
 				bl.forRange[1] = end
 			}
 		case "while":
-			bl.loopType = 2
 			expr, _, err := c.readSentence(line)
 			if err != nil {
 				return nil, err
@@ -4687,7 +4688,7 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 			return nil
 		case "if", "ignorehitpause", "persistent":
 			if sbl, err := c.subBlock(line, root, sbc, numVars,
-				bl != nil && bl.ctrlsIgnorehitpause); err != nil {
+				bl != nil && bl.ctrlsIgnorehitpause, bl != nil && bl.nestedInLoop); err != nil {
 				return err
 			} else {
 				if bl != nil && sbl.ignorehitpause >= -1 {
@@ -4706,6 +4707,28 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 				return err
 			} else {
 				*ctrls = append(*ctrls, *sbl)
+			}
+			continue
+		case "break", "continue":
+			if bl.nestedInLoop {
+				switch c.token {
+					case "break":
+						*ctrls = append(*ctrls, LoopBreak{})
+					case "continue":
+						*ctrls = append(*ctrls, LoopContinue{})
+				}
+				c.scan(line)
+				if err := c.needToken(";"); err != nil {
+					return err
+				}
+				if root {
+					if err := c.statementEnd(line); err != nil {
+						return err
+					}
+				}
+				c.scan(line)
+			} else {
+				return Error(fmt.Sprintf("%v can only be used inside a loop block", c.token))
 			}
 			continue
 		case "let":

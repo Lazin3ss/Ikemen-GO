@@ -2075,16 +2075,19 @@ func (cf callFunction) Run(c *Char, _ []int32) (changeState bool) {
 }
 
 type StateBlock struct {
+	// Basic block fields
 	persistent          int32
 	persistentIndex     int32
 	ignorehitpause      int32
 	ctrlsIgnorehitpause bool
-	loopBlock           bool
-	loopType            int
-	forRange            [2]int32
 	trigger             BytecodeExp
 	elseBlock           *StateBlock
 	ctrls               []StateController
+	// Loop fields
+	nestedInLoop        bool
+	loopBlock           bool
+	forLoop             bool
+	forRange            [2]int32
 }
 
 func newStateBlock() *StateBlock {
@@ -2111,35 +2114,52 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 	}
 	sys.workingChar = c
 	if b.loopBlock {
-		i := b.forRange[0]
+		stopLoop, i := false, b.forRange[0]
 		for {
-			if b.loopType == 1 {
+			// Decide if loop should stop
+			if b.forLoop {
 				if b.forRange[0] <= b.forRange[1] {
+					if i > b.forRange[1] {
+						stopLoop = true
+					}
 					i++
-					if i > b.forRange[1] + 1 {
-						break
-					}
 				} else {
-					i--
-					if i < b.forRange[1] - 1 {
-						break
+					if i < b.forRange[1] {
+						stopLoop = true
 					}
+					i--
 				}
-			} else if b.loopType == 2 {
-				// While block needs to eval conditional indefinitely
+			} else {
+				// While block needs to eval conditional indefinitely until it returns false
 				if len(b.trigger) > 0 && !b.trigger.evalB(c) {
-					break
+					stopLoop = true
 				}
 			}
-			for _, sc := range b.ctrls {
-				switch sc.(type) {
-				case StateBlock:
-				default:
-					if !b.ctrlsIgnorehitpause && c.hitPause() {
-						continue
+			if !stopLoop {
+				for _, sc := range b.ctrls {
+					switch sc.(type) {
+					case StateBlock:
+					default:
+						if !b.ctrlsIgnorehitpause && c.hitPause() {
+							continue
+						}
+					}
+					if sc.Run(c, ps) {
+						if sys.loopBreak {
+							sys.loopBreak = false
+							stopLoop = true
+							break
+						}
+						if sys.loopContinue {
+							sys.loopContinue = false
+							break
+						}
+						return true
 					}
 				}
-				sc.Run(c, ps)
+			}
+			if stopLoop {
+				break
 			}
 		}
 	} else {
@@ -2166,6 +2186,20 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 		ps[b.persistentIndex] = b.persistent
 	}
 	return false
+}
+
+type LoopBreak struct{}
+
+func (lb LoopBreak) Run(c *Char, _ []int32) (stop bool) {
+	sys.loopBreak = true
+	return true
+}
+
+type LoopContinue struct{}
+
+func (lc LoopContinue) Run(c *Char, _ []int32) (stop bool) {
+	sys.loopContinue = true
+	return true
 }
 
 type StateExpr BytecodeExp
