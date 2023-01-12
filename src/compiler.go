@@ -4504,6 +4504,43 @@ func (c *Compiler) subBlock(line *string, root bool,
 		if err := c.needToken("{"); err != nil {
 			return nil, err
 		}
+	case "for":
+		bl.loopBlock = true
+		bl.nestedInLoop = true
+		bl.forLoop = true
+		c.scan(line)
+		if begin, err := c.integer2(line); err != nil {
+			return nil, err
+		} else {
+			bl.forRange[0] = begin
+		}
+		if err := c.needToken(","); err != nil {
+			return nil, err
+		}
+		c.scan(line)
+		if end, err := c.integer2(line); err != nil {
+			return nil, err
+		} else {
+			bl.forRange[1] = end
+		}
+		if err := c.needToken("{"); err != nil {
+			return nil, err
+		}
+	case "while":
+		bl.loopBlock = true
+		bl.nestedInLoop = true
+		expr, _, err := c.readSentence(line)
+		if err != nil {
+			return nil, err
+		}
+		otk := c.token
+		if bl.trigger, err = c.fullExpression(&expr, VT_Bool); err != nil {
+			return nil, err
+		}
+		c.token = otk
+		if err := c.needToken("{"); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, c.yokisinaiToken()
 	}
@@ -4530,7 +4567,7 @@ func (c *Compiler) subBlock(line *string, root bool,
 	} else {
 		c.scan(line)
 	}
-	if len(bl.trigger) > 0 && c.token == "else" {
+	if !bl.loopBlock && len(bl.trigger) > 0 && c.token == "else" {
 		c.scan(line)
 		var err error
 		if bl.elseBlock, err = c.subBlock(line, root,
@@ -4620,55 +4657,6 @@ func (c *Compiler) callFunc(line *string, root bool,
 	c.scan(line)
 	return nil
 }
-func (c *Compiler) loopBlock(line *string, root bool,
-	sbc *StateBytecode, numVars *int32) (*StateBlock, error) {
-	bl := newStateBlock()
-	bl.loopBlock = true
-	bl.nestedInLoop = true
-	switch c.token {
-		case "for":
-			bl.forLoop = true
-			c.scan(line)
-			if begin, err := c.integer2(line); err != nil {
-				return nil, err
-			} else {
-				bl.forRange[0] = begin
-			}
-			if err := c.needToken(","); err != nil {
-				return nil, err
-			}
-			c.scan(line)
-			if end, err := c.integer2(line); err != nil {
-				return nil, err
-			} else {
-				bl.forRange[1] = end
-			}
-		case "while":
-			expr, _, err := c.readSentence(line)
-			if err != nil {
-				return nil, err
-			}
-			otk := c.token
-			if bl.trigger, err = c.fullExpression(&expr, VT_Bool); err != nil {
-				return nil, err
-			}
-			c.token = otk
-	}
-	if err := c.needToken("{"); err != nil {
-		return nil, err
-	}
-	if err := c.stateBlock(line, bl, false,
-		sbc, &bl.ctrls, numVars); err != nil {
-		return nil, err
-	}
-	if root {
-		if err := c.statementEnd(line); err != nil {
-			return nil, err
-		}
-	}
-	c.scan(line)
-	return bl, nil
-}
 func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 	sbc *StateBytecode, ctrls *[]StateController, numVars *int32) error {
 	c.scan(line)
@@ -4686,7 +4674,7 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 				return c.yokisinaiToken()
 			}
 			return nil
-		case "if", "ignorehitpause", "persistent":
+		case "if", "ignorehitpause", "for", "persistent", "while":
 			if sbl, err := c.subBlock(line, root, sbc, numVars,
 				bl != nil && bl.ctrlsIgnorehitpause, bl != nil && bl.nestedInLoop); err != nil {
 				return err
@@ -4700,13 +4688,6 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 		case "call":
 			if err := c.callFunc(line, root, ctrls, nil); err != nil {
 				return err
-			}
-			continue
-		case "for", "while":
-			if sbl, err := c.loopBlock(line, root, sbc, numVars); err != nil {
-				return err
-			} else {
-				*ctrls = append(*ctrls, *sbl)
 			}
 			continue
 		case "break", "continue":

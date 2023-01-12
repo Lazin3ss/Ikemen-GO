@@ -2114,28 +2114,28 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 	}
 	sys.workingChar = c
 	if b.loopBlock {
-		stopLoop, i := false, b.forRange[0]
+		interrupt, i := false, b.forRange[0]
 		for {
-			// Decide if loop should stop
+			// Decide if loop should be stopped
 			if b.forLoop {
 				if b.forRange[0] <= b.forRange[1] {
 					if i > b.forRange[1] {
-						stopLoop = true
+						interrupt = true
 					}
 					i++
 				} else {
 					if i < b.forRange[1] {
-						stopLoop = true
+						interrupt = true
 					}
 					i--
 				}
 			} else {
 				// While block needs to eval conditional indefinitely until it returns false
 				if len(b.trigger) > 0 && !b.trigger.evalB(c) {
-					stopLoop = true
+					interrupt = true
 				}
 			}
-			if !stopLoop {
+			if !interrupt {
 				for _, sc := range b.ctrls {
 					switch sc.(type) {
 					case StateBlock:
@@ -2147,7 +2147,7 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 					if sc.Run(c, ps) {
 						if sys.loopBreak {
 							sys.loopBreak = false
-							stopLoop = true
+							interrupt = true
 							break
 						}
 						if sys.loopContinue {
@@ -2158,7 +2158,7 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 					}
 				}
 			}
-			if stopLoop {
+			if interrupt {
 				break
 			}
 		}
