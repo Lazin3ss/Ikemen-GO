@@ -4227,6 +4227,9 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 	return nil
 }
 
+// ------------------------------------------------------------------
+// Lexical Analysis
+
 func (c *Compiler) yokisinaiToken() error {
 	if c.token == "" {
 		return Error("Missing token")
@@ -4508,23 +4511,56 @@ func (c *Compiler) subBlock(line *string, root bool,
 		bl.loopBlock = true
 		bl.nestedInLoop = true
 		bl.forLoop = true
-		c.scan(line)
-		if begin, err := c.integer2(line); err != nil {
-			return nil, err
-		} else {
-			bl.forRange[0] = begin
+		i := 0
+		tmp := *line
+		nm := c.scan(&tmp)
+		if (nm[0] >= 'a' && nm[0] <= 'z') || nm[0] == '_' {
+			// Local variable assignation from for header
+			names, err := c.varNames("=", line)
+			if err != nil {
+				return nil, err
+			}
+			if len(names) > 0 {
+				var tmp []StateController
+				if err := c.letAssign(line, root, &tmp, numVars, names, false); err != nil {
+					return nil, err
+				}
+				bl.forCtrlVar = tmp[0].(varAssign)
+				bl.forAssign = true
+				i = 1
+			}
 		}
-		if err := c.needToken(","); err != nil {
-			return nil, err
-		}
-		c.scan(line)
-		if end, err := c.integer2(line); err != nil {
-			return nil, err
-		} else {
-			bl.forRange[1] = end
+		// Compile header expressions
+		for ; i < 3; i++ {
+			if c.token == "{" {
+				if i < 2 {
+					return nil, Error("For needs more than one expression")
+				} else {
+					// For only has begin/end expressions, so we stop compiling the header
+					break
+				}
+			}
+			if c.token == ";" && i < 1 {
+				return nil, Error("Misplaced ;")
+			}
+			expr, _, err := c.readSentence(line)
+			if err != nil {
+				return nil, err
+			}
+			otk := c.token
+			if bl.forExpression[i], err = c.fullExpression(&expr, VT_Int); err != nil {
+				return nil, err
+			}
+			c.token = otk
 		}
 		if err := c.needToken("{"); err != nil {
 			return nil, err
+		}
+		// Default increment value: i++
+		if bl.forExpression[2] == nil {
+			var be BytecodeExp
+			be.appendValue(BytecodeInt(1))
+			bl.forExpression[2] = be
 		}
 	case "while":
 		bl.loopBlock = true
@@ -4657,6 +4693,72 @@ func (c *Compiler) callFunc(line *string, root bool,
 	c.scan(line)
 	return nil
 }
+func (c *Compiler) letAssign(line *string, root bool,
+	ctrls *[]StateController, numVars *int32, names []string, endLine bool) error {
+	varis := make([]uint8, len(names))
+	for i, n := range names {
+		vi, ok := c.vars[n]
+		if !ok {
+			vi = uint8(*numVars)
+			c.vars[n] = vi
+			if err := c.inclNumVars(numVars); err != nil {
+				return err
+			}
+		}
+		varis[i] = vi
+	}
+	switch c.scan(line) {
+	case "call":
+		if err := c.callFunc(line, root, ctrls, varis); err != nil {
+			return err
+		}
+	default:
+		otk := c.token
+		expr, _, err := c.readSentence(line)
+		if err != nil {
+			return err
+		}
+		expr = otk + " " + expr
+		otk = c.token
+		for i, n := range names {
+			var be BytecodeExp
+			if i < len(names)-1 {
+				be, err = c.argExpression(&expr, VT_SFalse)
+				if err != nil {
+					return err
+				}
+				if c.token == "" {
+					c.token = otk
+				}
+				if err := c.needToken(","); err != nil {
+					return err
+				}
+			} else {
+				if be, err = c.fullExpression(&expr, VT_SFalse); err != nil {
+					return err
+				}
+			}
+			if n == "_" {
+				*ctrls = append(*ctrls, StateExpr(be))
+			} else {
+				*ctrls = append(*ctrls, varAssign{vari: varis[i], be: be})
+			}
+		}
+		c.token = otk
+		if err := c.needToken(";"); err != nil {
+			return err
+		}
+		if endLine {
+			if root {
+				if err := c.statementEnd(line); err != nil {
+					return err
+				}
+			}
+			c.scan(line)
+		}
+	}
+	return nil
+}
 func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 	sbc *StateBytecode, ctrls *[]StateController, numVars *int32) error {
 	c.scan(line)
@@ -4720,65 +4822,8 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 			if len(names) == 0 {
 				return c.yokisinaiToken()
 			}
-			varis := make([]uint8, len(names))
-			for i, n := range names {
-				vi, ok := c.vars[n]
-				if !ok {
-					vi = uint8(*numVars)
-					c.vars[n] = vi
-					if err := c.inclNumVars(numVars); err != nil {
-						return err
-					}
-				}
-				varis[i] = vi
-			}
-			switch c.scan(line) {
-			case "call":
-				if err := c.callFunc(line, root, ctrls, varis); err != nil {
-					return err
-				}
-			default:
-				otk := c.token
-				expr, _, err := c.readSentence(line)
-				if err != nil {
-					return err
-				}
-				expr = otk + " " + expr
-				otk = c.token
-				for i, n := range names {
-					var be BytecodeExp
-					if i < len(names)-1 {
-						be, err = c.argExpression(&expr, VT_SFalse)
-						if err != nil {
-							return err
-						}
-						if c.token == "" {
-							c.token = otk
-						}
-						if err := c.needToken(","); err != nil {
-							return err
-						}
-					} else {
-						if be, err = c.fullExpression(&expr, VT_SFalse); err != nil {
-							return err
-						}
-					}
-					if n == "_" {
-						*ctrls = append(*ctrls, StateExpr(be))
-					} else {
-						*ctrls = append(*ctrls, varAssign{vari: varis[i], be: be})
-					}
-				}
-				c.token = otk
-				if err := c.needToken(";"); err != nil {
-					return err
-				}
-				if root {
-					if err := c.statementEnd(line); err != nil {
-						return err
-					}
-				}
-				c.scan(line)
+			if err := c.letAssign(line, root, ctrls, numVars, names, true); err != nil {
+				return err
 			}
 			continue
 		default:

@@ -2087,7 +2087,11 @@ type StateBlock struct {
 	nestedInLoop        bool
 	loopBlock           bool
 	forLoop             bool
-	forRange            [2]int32
+	forAssign           bool
+	forCtrlVar          varAssign
+	forExpression       [3]BytecodeExp
+	forBegin, forEnd    int32
+	forIncrement        int32
 }
 
 func newStateBlock() *StateBlock {
@@ -2114,27 +2118,27 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 	}
 	sys.workingChar = c
 	if b.loopBlock {
-		interrupt, i := false, b.forRange[0]
-		for {
-			// Decide if loop should be stopped
-			if b.forLoop {
-				if b.forRange[0] <= b.forRange[1] {
-					if i > b.forRange[1] {
-						interrupt = true
-					}
-					i++
-				} else {
-					if i < b.forRange[1] {
-						interrupt = true
-					}
-					i--
-				}
+		if b.forLoop {
+			if b.forAssign {
+				// Initial assign to control variable
+				b.forCtrlVar.Run(c, ps)
+				b.forBegin = sys.bcVar[b.forCtrlVar.vari].ToI()
 			} else {
-				// While block needs to eval conditional indefinitely until it returns false
+				b.forBegin = b.forExpression[0].evalI(c)
+			}
+			b.forEnd, b.forIncrement = b.forExpression[1].evalI(c), b.forExpression[2].evalI(c)
+		}
+		// Start loop
+		interrupt := false
+		for {
+			// Decide if while loop should be stopped
+			if !b.forLoop {
+				// While loop needs to eval conditional indefinitely until it returns false
 				if len(b.trigger) > 0 && !b.trigger.evalB(c) {
 					interrupt = true
 				}
 			}
+			// Run State Controllers
 			if !interrupt {
 				for _, sc := range b.ctrls {
 					switch sc.(type) {
@@ -2156,6 +2160,23 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 						}
 						return true
 					}
+				}
+			}
+			// Decide if for loop should be stopped
+			if b.forLoop {
+				// Update loop count
+				if b.forAssign {
+					sys.bcVar[b.forCtrlVar.vari].SetI(sys.bcVar[b.forCtrlVar.vari].ToI() + b.forIncrement)
+					b.forBegin = sys.bcVar[b.forCtrlVar.vari].ToI()
+				} else {
+					b.forBegin += b.forIncrement
+				}
+				if b.forIncrement > 0 {
+					if b.forBegin > b.forEnd {
+						interrupt = true
+					}
+				} else if b.forBegin < b.forEnd { 
+					interrupt = true
 				}
 			}
 			if interrupt {
