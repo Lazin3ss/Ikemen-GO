@@ -4505,9 +4505,11 @@ func (c *Compiler) subBlock(line *string, root bool,
 	if err := c.blockAttribSet(line, bl, sbc, inheritIhp, nestedInLoop); err != nil {
 		return nil, err
 	}
+	compileMain, compileElse := true, false
 	switch c.token {
 	case "{":
 	case "if":
+		compileElse = true
 		expr, _, err := c.readSentence(line)
 		if err != nil {
 			return nil, err
@@ -4518,6 +4520,11 @@ func (c *Compiler) subBlock(line *string, root bool,
 		}
 		c.token = otk
 		if err := c.needToken("{"); err != nil {
+			return nil, err
+		}
+	case "switch":
+		compileMain = false
+		if err := c.switchBlock(line, bl, sbc, numVars); err != nil {
 			return nil, err
 		}
 	case "for":
@@ -4593,9 +4600,11 @@ func (c *Compiler) subBlock(line *string, root bool,
 	default:
 		return nil, c.yokisinaiToken()
 	}
-	if err := c.stateBlock(line, bl, false,
-		sbc, &bl.ctrls, numVars); err != nil {
-		return nil, err
+	if compileMain {
+		if err := c.stateBlock(line, bl, false,
+			sbc, &bl.ctrls, numVars); err != nil {
+			return nil, err
+		}
 	}
 	if root {
 		if len(bl.trigger) > 0 {
@@ -4616,7 +4625,7 @@ func (c *Compiler) subBlock(line *string, root bool,
 	} else {
 		c.scan(line)
 	}
-	if !bl.loopBlock && len(bl.trigger) > 0 && c.token == "else" {
+	if compileElse && len(bl.trigger) > 0 && c.token == "else" {
 		c.scan(line)
 		var err error
 		if bl.elseBlock, err = c.subBlock(line, root,
@@ -4629,7 +4638,7 @@ func (c *Compiler) subBlock(line *string, root bool,
 	}
 	return bl, nil
 }
-func (c *Compiler) switchBlock(line *string, bl *StateBlock, root bool,
+func (c *Compiler) switchBlock(line *string, bl *StateBlock,
 	sbc *StateBytecode, numVars *int32) error {
 	// In this implementation of switch, we convert the statement to an if-elseif-else chain of blocks
 	header, _, err := c.readSentence(line)
@@ -4639,7 +4648,8 @@ func (c *Compiler) switchBlock(line *string, bl *StateBlock, root bool,
 	if err := c.needToken("{"); err != nil {
 		return err
 	}
-	compileBlock := func(sbl *StateBlock, expr *string) error {
+	c.scan(line)
+	compileCaseBlock := func(sbl *StateBlock, expr *string) error {
 		if err := c.blockAttribSet(line, sbl, sbc,
 			bl != nil && bl.ctrlsIgnorehitpause, bl != nil && bl.nestedInLoop); err != nil {
 			return err
@@ -4656,7 +4666,6 @@ func (c *Compiler) switchBlock(line *string, bl *StateBlock, root bool,
 		}
 		return nil
 	}
-	c.scan(line)
 	// Start examining the cases
 	var readNextCase func(*StateBlock) (*StateBlock, error)
 	readNextCase = func(def *StateBlock) (*StateBlock, error) {
@@ -4670,8 +4679,10 @@ func (c *Compiler) switchBlock(line *string, bl *StateBlock, root bool,
 				c.scan(line)
 				expr = "1"
 				def = newStateBlock()
-				compileBlock(def, &expr)
-				// See if only a default was defined in this switch statement,
+				if err := compileCaseBlock(def, &expr); err != nil {
+					return nil, err
+				}
+				// See if default is the last case defined in this switch statement,
 				// return default block if that's the case
 				if c.token == "}" {
 					return def, nil
@@ -4703,7 +4714,9 @@ func (c *Compiler) switchBlock(line *string, bl *StateBlock, root bool,
 		}
 		// Create a new state block for this case
 		sbl := newStateBlock()
-		compileBlock(sbl, &expr)
+		if err := compileCaseBlock(sbl, &expr); err != nil {
+			return nil, err
+		}
 		// Switch has finished
 		if c.token == "}" {
 			// Assign default block as the latest else in the chain
@@ -4724,7 +4737,6 @@ func (c *Compiler) switchBlock(line *string, bl *StateBlock, root bool,
 		}
 		bl.ctrls = append(bl.ctrls, *sbl)
 	}
-	c.scan(line)
 	return nil
 }
 func (c *Compiler) callFunc(line *string, root bool,
@@ -4887,7 +4899,7 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 				return c.yokisinaiToken()
 			}
 			return nil
-		case "if", "ignorehitpause", "for", "persistent", "while":
+		case "if", "ignorehitpause", "for", "persistent", "switch", "while":
 			if sbl, err := c.subBlock(line, root, sbc, numVars,
 				bl != nil && bl.ctrlsIgnorehitpause, bl != nil && bl.nestedInLoop); err != nil {
 				return err
@@ -4896,11 +4908,6 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 					bl.ignorehitpause = -1
 				}
 				*ctrls = append(*ctrls, *sbl)
-			}
-			continue
-		case "switch":
-			if err := c.switchBlock(line, bl, root, sbc, numVars); err != nil {
-				return err
 			}
 			continue
 		case "call":
