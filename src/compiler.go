@@ -4282,16 +4282,19 @@ func (c *Compiler) readSentenceLine(line *string) (s string, assign bool,
 	c.token = ""
 	offset := 0
 	for {
-		i := strings.IndexAny((*line)[offset:], ";#\"{}")
+		i := strings.IndexAny((*line)[offset:], ":;#\"{}")
 		if i < 0 {
-			assign = assign || strings.Contains((*line)[offset:], ":=")
 			s, *line = *line, ""
 			return
 		}
 		i += offset
-		assign = assign || strings.Contains((*line)[offset:i], ":=")
 		switch (*line)[i] {
-		case ';', '{', '}':
+		case ':', ';', '{', '}':
+			if (*line)[i] == ':' && len(*line) > i+1 && (*line)[i+1] == '=' {
+				assign = true
+				offset = i+1
+				continue
+			}
 			c.token = (*line)[i : i+1]
 			s, *line = (*line)[:i], (*line)[i+1:]
 		case '#':
@@ -4438,49 +4441,51 @@ func (c *Compiler) scanStateDef(line *string, constants map[string]float32) (int
 	v := Atoi(t)
 	return v, err
 }
-func (c *Compiler) subBlock(line *string, root bool,
-	sbc *StateBytecode, numVars *int32, ignorehitpause, nestedInLoop bool) (*StateBlock, error) {
-	bl := newStateBlock()
+// Sets attributes to a StateBlock, like IgnoreHitPause, Persistent
+func (c *Compiler) blockAttribSet(line *string, bl *StateBlock, sbc *StateBytecode,
+	inheritIhp, nestedInLoop bool) error {
 	// Inherit ignorehitpause/loop attr from parent block
-	if ignorehitpause {
+	if inheritIhp {
 		bl.ignorehitpause, bl.ctrlsIgnorehitpause = -1, true
+		// Avoid re-reading ignorehitpause
+		if c.token == "ignorehitpause" {
+			c.scan(line)
+		}
 	}
 	bl.nestedInLoop = nestedInLoop
-	ihpRead := false
 	for {
 		switch c.token {
 		case "ignorehitpause":
-			if ihpRead {
-				return nil, c.yokisinaiToken()
+			if bl.ignorehitpause >= -1 {
+				return c.yokisinaiToken()
 			}
 			bl.ignorehitpause, bl.ctrlsIgnorehitpause = -1, true
 			c.scan(line)
-			ihpRead = true
 			continue
 		case "persistent":
 			if sbc == nil {
-				return nil, Error("persistent cannot be used in a function")
+				return Error("persistent cannot be used in a function")
 			}
 			if c.stateNo < 0 {
-				return nil, Error("persistent cannot be used in a negative state")
+				return Error("persistent cannot be used in a negative state")
 			}
 			if bl.persistentIndex >= 0 {
-				return nil, c.yokisinaiToken()
+				return c.yokisinaiToken()
 			}
 			c.scan(line)
 			if err := c.needToken("("); err != nil {
-				return nil, err
+				return err
 			}
 			var err error
 			if bl.persistent, err = c.scanI32(line); err != nil {
-				return nil, err
+				return err
 			}
 			c.scan(line)
 			if err := c.needToken(")"); err != nil {
-				return nil, err
+				return err
 			}
 			if bl.persistent == 1 {
-				return nil, Error("persistent(1) is meaningless")
+				return Error("persistent(1) is meaningless")
 			}
 			if bl.persistent <= 0 {
 				bl.persistent = math.MaxInt32
@@ -4491,6 +4496,14 @@ func (c *Compiler) subBlock(line *string, root bool,
 			continue
 		}
 		break
+	}
+	return nil
+}
+func (c *Compiler) subBlock(line *string, root bool,
+	sbc *StateBytecode, numVars *int32, inheritIhp, nestedInLoop bool) (*StateBlock, error) {
+	bl := newStateBlock()
+	if err := c.blockAttribSet(line, bl, sbc, inheritIhp, nestedInLoop); err != nil {
+		return nil, err
 	}
 	switch c.token {
 	case "{":
@@ -4607,7 +4620,7 @@ func (c *Compiler) subBlock(line *string, root bool,
 		c.scan(line)
 		var err error
 		if bl.elseBlock, err = c.subBlock(line, root,
-			sbc, numVars, ignorehitpause, nestedInLoop); err != nil {
+			sbc, numVars, inheritIhp, nestedInLoop); err != nil {
 			return nil, err
 		}
 		if bl.elseBlock.ignorehitpause >= -1 {
@@ -4615,6 +4628,104 @@ func (c *Compiler) subBlock(line *string, root bool,
 		}
 	}
 	return bl, nil
+}
+func (c *Compiler) switchBlock(line *string, bl *StateBlock, root bool,
+	sbc *StateBytecode, numVars *int32) error {
+	// In this implementation of switch, we convert the statement to an if-elseif-else chain of blocks
+	header, _, err := c.readSentence(line)
+	if err != nil {
+		return err
+	}
+	if err := c.needToken("{"); err != nil {
+		return err
+	}
+	compileBlock := func(sbl *StateBlock, expr *string) error {
+		if err := c.blockAttribSet(line, sbl, sbc,
+			bl != nil && bl.ctrlsIgnorehitpause, bl != nil && bl.nestedInLoop); err != nil {
+			return err
+		}
+		otk := c.token
+		if sbl.trigger, err = c.fullExpression(expr, VT_Bool); err != nil {
+			return err
+		}
+		c.token = otk
+		// Compile the inner block for this case
+		if err := c.stateBlock(line, sbl, false,
+			sbc, &sbl.ctrls, numVars); err != nil {
+			return err
+		}
+		return nil
+	}
+	c.scan(line)
+	// Start examining the cases
+	var readNextCase func(*StateBlock) (*StateBlock, error)
+	readNextCase = func(def *StateBlock) (*StateBlock, error) {
+		expr := ""
+		switch c.token {
+			case "case":
+			case "default":
+				if def != nil {
+					return nil, Error("Default already defined")
+				}
+				c.scan(line)
+				expr = "1"
+				def = newStateBlock()
+				compileBlock(def, &expr)
+				// See if only a default was defined in this switch statement,
+				// return default block if that's the case
+				if c.token == "}" {
+					return def, nil
+				}
+			default:
+				return nil, Error("Expected case or default")
+		}
+		// We loop through all possible expressions in this case, separated by ;
+		// Creating an equality/or expression string in the process
+		for {
+			caseValue, _, err := c.readSentence(line)
+			if err != nil {
+				return nil, err
+			}
+			// We create an equality expression that looks like this: header = caseValue
+			// and we append it to the case block expression. Colon at the end is also removed
+			expr += header + " = " + caseValue
+			if c.token == ";" {
+				// We'll have another expression to test for this case, so we append an OR operator
+				expr += " || "
+				// c.scan(line) // This shouldn't be necessary
+				continue
+			}
+			// We finished reading the case, check for colon existence
+			if err := c.needToken(":"); err != nil {
+				return nil, err
+			}
+			break
+		}
+		// Create a new state block for this case
+		sbl := newStateBlock()
+		compileBlock(sbl, &expr)
+		// Switch has finished
+		if c.token == "}" {
+			// Assign default block as the latest else in the chain
+			if def != nil {
+				sbl.elseBlock = def
+			}
+		// If not, we have another case to check
+		} else if sbl.elseBlock, err = readNextCase(def); err != nil {
+			return nil, err
+		}
+		return sbl, nil
+	}
+	if sbl, err := readNextCase(nil); err != nil {
+		return err
+	} else {
+		if bl != nil && sbl.ignorehitpause >= -1 {
+			bl.ignorehitpause = -1
+		}
+		bl.ctrls = append(bl.ctrls, *sbl)
+	}
+	c.scan(line)
+	return nil
 }
 func (c *Compiler) callFunc(line *string, root bool,
 	ctrls *[]StateController, ret []uint8) error {
@@ -4771,7 +4882,7 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 				return c.yokisinaiToken()
 			}
 			return nil
-		case "}":
+		case "}", "case", "default":
 			if root {
 				return c.yokisinaiToken()
 			}
@@ -4785,6 +4896,11 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 					bl.ignorehitpause = -1
 				}
 				*ctrls = append(*ctrls, *sbl)
+			}
+			continue
+		case "switch":
+			if err := c.switchBlock(line, bl, root, sbc, numVars); err != nil {
+				return err
 			}
 			continue
 		case "call":
