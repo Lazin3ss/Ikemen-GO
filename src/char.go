@@ -1628,6 +1628,14 @@ const (
 	HMF_F
 )
 
+type Priority int
+
+const (
+	Priority_High Priority = iota
+	Priority_Mid
+	Priority_Low
+)
+
 type CharSystemVar struct {
 	airJumpCount     int32
 	hitCount         int32
@@ -1663,8 +1671,7 @@ type CharSystemVar struct {
 	firstAttack  bool
 	comboDmg     int32
 	fakeComboDmg int32
-
-	fakeCombo bool
+	fakeCombo    bool
 }
 
 type Char struct {
@@ -1757,6 +1764,7 @@ type Char struct {
 	activeHitScale        map[int32][3]*HitScale
 	inputFlag             InputBits
 	pauseBool             bool
+	processPriority       Priority
 }
 
 func newChar(n int, idx int32) (c *Char) {
@@ -1850,6 +1858,7 @@ func (c *Char) clear1() {
 	c.immortal = false
 	c.kovelocity = false
 	c.preserve = 0
+	c.processPriority = Priority_Low
 }
 func (c *Char) copyParent(p *Char) {
 	c.parentIndex = p.helperIndex
@@ -5370,6 +5379,16 @@ func (c *Char) hittable(h *HitDef, e *Char, st StateType,
 	}
 	return true
 }
+func (c *Char) updateProcessPriority() {
+	// Process priority based on movetype: A > I > H (or anything else)
+	c.processPriority = Priority_Low
+	switch c.ss.moveType {
+		case MT_A:
+			c.processPriority = Priority_High
+		case MT_I:
+			c.processPriority = Priority_Mid
+	}
+}
 func (c *Char) actionPrepare() {
 	if c.minus != 2 || c.sf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
@@ -5514,6 +5533,7 @@ func (c *Char) actionPrepare() {
 			c.offset = [2]float32{}
 		}
 	}
+	c.updateProcessPriority()
 }
 func (c *Char) actionRun() {
 	if c.minus != 2 || c.sf(CSF_destroy) || c.scf(SCF_disabled) {
@@ -6177,23 +6197,24 @@ func (cl *CharList) action(x float32, cvmin, cvmax,
 		cl.runOrder[i].actionPrepare()
 	}
 	// Run character state controllers
-	// Process priority based on movetype: A > I > H (or anything else)
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].ss.moveType == MT_A {
-			cl.runOrder[i].actionRun()
+	for p := Priority_High; p <= Priority_Low; p++ {
+		for i := 0; i < len(cl.runOrder); i++ {
+			if cl.runOrder[i].processPriority == p {
+				cl.runOrder[i].actionRun()
+			}
 		}
 	}
+	// Update process priority in chars
 	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].ss.moveType == MT_I {
-			cl.runOrder[i].actionRun()
-		}
-	}
-	for i := 0; i < len(cl.runOrder); i++ {
-		cl.runOrder[i].actionRun()
+		cl.runOrder[i].updateProcessPriority()
 	}
 	// Finish performing character actions
-	for i := 0; i < len(cl.runOrder); i++ {
-		cl.runOrder[i].actionFinish()
+	for p := Priority_High; p <= Priority_Low; p++ {
+		for i := 0; i < len(cl.runOrder); i++ {
+			if cl.runOrder[i].processPriority == p {
+				cl.runOrder[i].actionFinish()
+			}
+		}
 	}
 	// Update chars
 	sys.charUpdate(cvmin, cvmax, highest, lowest, leftest, rightest)
