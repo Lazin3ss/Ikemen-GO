@@ -5689,8 +5689,7 @@ func (c *Char) actionFinish() {
 	}
 	c.minus = 1
 }
-func (c *Char) update(cvmin, cvmax,
-	highest, lowest, leftest, rightest *float32) {
+func (c *Char) update() {
 	if c.scf(SCF_disabled) {
 		return
 	}
@@ -5848,17 +5847,17 @@ func (c *Char) update(cvmin, cvmax,
 		c.drawPos[0] = ClampF(c.drawPos[0], min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
 	}
 	if c.sf(CSF_movecamera_x) && !c.scf(SCF_standby) {
-		*leftest = MaxF(sys.xmin, MinF(c.drawPos[0]*c.localscl-min*c.localscl, *leftest))
-		*rightest = MinF(sys.xmax, MaxF(c.drawPos[0]*c.localscl-max*c.localscl, *rightest))
+		sys.cam.leftest = MaxF(sys.xmin, MinF(c.drawPos[0]*c.localscl-min*c.localscl, sys.cam.leftest))
+		sys.cam.rightest = MinF(sys.xmax, MaxF(c.drawPos[0]*c.localscl-max*c.localscl, sys.cam.rightest))
 		if c.acttmp > 0 && !c.sf(CSF_posfreeze) &&
 			(c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0]))) {
-			*cvmin = MinF(*cvmin, c.vel[0]*c.localscl*c.facing)
-			*cvmax = MaxF(*cvmax, c.vel[0]*c.localscl*c.facing)
+			sys.cam.vmin = MinF(sys.cam.vmin, c.vel[0]*c.localscl*c.facing)
+			sys.cam.vmax = MaxF(sys.cam.vmax, c.vel[0]*c.localscl*c.facing)
 		}
 	}
 	if c.sf(CSF_movecamera_y) && !c.scf(SCF_standby) {
-		*highest = MinF(c.drawPos[1]*c.localscl, *highest)
-		*lowest = MaxF(c.drawPos[1]*c.localscl, *lowest)
+		sys.cam.highest = MinF(c.drawPos[1]*c.localscl, sys.cam.highest)
+		sys.cam.lowest = MaxF(c.drawPos[1]*c.localscl, sys.cam.lowest)
 		sys.cam.Pos[1] = 0 + sys.cam.CameraZoomYBound
 	}
 }
@@ -6189,8 +6188,7 @@ func (cl *CharList) delete(dc *Char) {
 		}
 	}
 }
-func (cl *CharList) action(x float32, cvmin, cvmax,
-	highest, lowest, leftest, rightest *float32) {
+func (cl *CharList) action() {
 	sys.commandUpdate()
 	// Prepare characters before performing their actions
 	for i := 0; i < len(cl.runOrder); i++ {
@@ -6217,23 +6215,22 @@ func (cl *CharList) action(x float32, cvmin, cvmax,
 		}
 	}
 	// Update chars
-	sys.charUpdate(cvmin, cvmax, highest, lowest, leftest, rightest)
+	sys.charUpdate()
 }
-func (cl *CharList) update(cvmin, cvmax,
-	highest, lowest, leftest, rightest *float32) {
+func (cl *CharList) update() {
 	ro := make([]*Char, len(cl.runOrder))
 	copy(ro, cl.runOrder)
 	for _, c := range ro {
-		c.update(cvmin, cvmax, highest, lowest, leftest, rightest)
+		c.update()
 	}
 	if !sys.cam.ytensionenable {
-		*highest = *lowest
+		sys.cam.highest = sys.cam.lowest
 		for _, c := range ro {
 			if c.sf(CSF_movecamera_y) && !c.scf(SCF_standby) {
-				*highest = MinF(c.drawPos[1]*c.localscl, *highest)
+				sys.cam.highest = MinF(c.drawPos[1]*c.localscl, sys.cam.highest)
 			}
 		}
-		*lowest = *highest
+		sys.cam.lowest = sys.cam.highest
 	}
 }
 func (cl *CharList) clsn(getter *Char, proj bool) {

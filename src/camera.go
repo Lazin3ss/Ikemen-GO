@@ -37,19 +37,21 @@ func newStageCamera() *stageCamera {
 
 type Camera struct {
 	stageCamera
-	ZoomEnable, ZoomActive          bool
-	ZoomDelayEnable                 bool
-	ZoomMin, ZoomMax, ZoomSpeed     float32
-	zoomdelay                       float32
-	Pos, ScreenPos, Offset          [2]float32
-	XMin, XMax                      float32
-	Scale, MinScale                 float32
-	boundL, boundR, boundH, boundLo float32
-	ExtraBoundH                     float32
-	zoff                            float32
-	screenZoff                      float32
-	halfWidth                       float32
-	CameraZoomYBound                float32
+	ZoomEnable, ZoomActive             bool
+	ZoomDelayEnable                    bool
+	ZoomMin, ZoomMax, ZoomSpeed        float32
+	zoomdelay                          float32
+	Pos, ScreenPos, Offset             [2]float32
+	XMin, XMax                         float32
+	Scale, MinScale                    float32
+	boundL, boundR, boundH, boundLo    float32
+	ExtraBoundH                        float32
+	vmin, vmax                         float32
+	highest, lowest, leftest, rightest float32
+	zoff                               float32
+	screenZoff                         float32
+	halfWidth                          float32
+	CameraZoomYBound                   float32
 }
 
 func newCamera() *Camera {
@@ -128,10 +130,9 @@ func (c *Camera) GroundLevel() float32 {
 func (c *Camera) ResetZoomdelay() {
 	c.zoomdelay = 0
 }
-func (c *Camera) action(x, y *float32, leftest, rightest, lowest, highest,
-	vmin, vmax float32, pause bool) (sclMul float32) {
+func (c *Camera) action(x, y *float32, pause bool) (sclMul float32) {
 	tension := MaxF(0, c.halfWidth/c.Scale-float32(c.tension)*c.localscl)
-	tmp, vx := (leftest+rightest)/2, vmin+vmax
+	tmp, vx := (c.leftest+c.rightest)/2, c.vmin+c.vmax
 	if vx == 0 || (vx < 0) == (tmp < 0) {
 		vel := float32(3)
 		if sys.intro > sys.lifebar.ro.ctrl_time+1 {
@@ -151,12 +152,12 @@ func (c *Camera) action(x, y *float32, leftest, rightest, lowest, highest,
 		vx *= MinF(1, sys.turbo)
 	}
 	if vx < 0 {
-		tmp = MaxF(leftest+tension, tmp)
+		tmp = MaxF(c.leftest+tension, tmp)
 		if vx < tmp {
 			vx = MinF(0, tmp)
 		}
 	} else {
-		tmp = MinF(rightest-tension, tmp)
+		tmp = MinF(c.rightest-tension, tmp)
 		if vx > tmp {
 			vx = MaxF(0, tmp)
 		}
@@ -174,22 +175,22 @@ func (c *Camera) action(x, y *float32, leftest, rightest, lowest, highest,
 			ftension = 0
 		}
 	}
-	if highest < -ftension {
-		*y = (highest + ftension + MaxF(0, lowest+ftensionlow)) * Pow(vfollow,
+	if c.highest < -ftension {
+		*y = (c.highest + ftension + MaxF(0, c.lowest+ftensionlow)) * Pow(vfollow,
 			MinF(1, 1/Pow(c.Scale, 4)))
-	} else if lowest > -ftensionlow {
-		*y = (lowest + ftensionlow) * Pow(vfollow,
+	} else if c.lowest > -ftensionlow {
+		*y = (c.lowest + ftensionlow) * Pow(vfollow,
 			MinF(1, 1/Pow(c.Scale, 4)))
 	} else {
 		*y = c.Pos[1] - c.CameraZoomYBound
 	}
-	tmp = (rightest + sys.screenright) - (leftest - sys.screenleft) -
+	tmp = (c.rightest + sys.screenright) - (c.leftest - sys.screenleft) -
 		float32(sys.gameWidth-320)
 	if tmp < 0 {
 		tmp = 0
 	}
 	tmp = MaxF(220/c.Scale, float32(math.Sqrt(float64(Pow(tmp, 2)+
-		Pow(lowest+float32(c.tensionlow)*c.localscl+67-highest, 2)))))
+		Pow(c.lowest+float32(c.tensionlow)*c.localscl+67-c.highest, 2)))))
 	sclMul = tmp * c.Scale / MaxF(c.Scale, (400-80*MaxF(1, c.Scale))*
 		Pow(2, c.ZoomSpeed-2))
 	if sclMul >= 3/Pow(2, c.ZoomSpeed) {
