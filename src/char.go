@@ -1736,8 +1736,8 @@ type Char struct {
 	selectNo              int
 	comboExtraFrameWindow int32
 	inheritJuggle         int32
-	mapArray              map[string]float32
-	mapDefault            map[string]float32
+	mapArray              map[string]any
+	mapDefault            map[string]any
 	remapSpr              RemapPreset
 	clipboardText         []string
 	dialogue              []string
@@ -1777,7 +1777,7 @@ func (c *Char) init(n int, idx int32) {
 		c.kovelocity = true
 		c.keyctrl = [...]bool{true, true, true, true}
 	} else {
-		c.mapArray = make(map[string]float32)
+		c.mapArray = make(map[string]any)
 		c.remapSpr = make(RemapPreset)
 
 		c.defaultHitScale = newHitScaleArray()
@@ -1921,7 +1921,7 @@ func (c *Char) clearCachedData() {
 	c.pushed = false
 	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 2
 	c.winquote = -1
-	c.mapArray = make(map[string]float32)
+	c.mapArray = make(map[string]any)
 	c.remapSpr = make(RemapPreset)
 	c.defaultHitScale = newHitScaleArray()
 	c.activeHitScale = make(map[int32][3]*HitScale)
@@ -1948,7 +1948,7 @@ func (c *Char) load(def string) error {
 	for i := range gi.palkeymap {
 		gi.palkeymap[i] = int32(i)
 	}
-	c.mapDefault = make(map[string]float32)
+	c.mapDefault = make(map[string]any)
 	str, err := LoadText(def)
 	if err != nil {
 		return err
@@ -4866,7 +4866,7 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 	case 0:
 		c.mapArray[key] = Value
 	case 1:
-		c.mapArray[key] += Value
+		c.mapArray[key] = float32(c.mapArray[key].(float32)) + Value
 	case 2:
 		if c.parent() != nil {
 			c.parent().mapArray[key] = Value
@@ -4875,9 +4875,9 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 		}
 	case 3:
 		if c.parent() != nil {
-			c.parent().mapArray[key] += Value
+			c.parent().mapArray[key] = float32(c.parent().mapArray[key].(float32)) + Value
 		} else {
-			c.mapArray[key] += Value
+			c.mapArray[key] = float32(c.mapArray[key].(float32)) + Value
 		}
 	case 4:
 		if c.root() != nil {
@@ -4887,9 +4887,9 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 		}
 	case 5:
 		if c.root() != nil {
-			c.root().mapArray[key] += Value
+			c.root().mapArray[key] = float32(c.root().mapArray[key].(float32)) + Value
 		} else {
-			c.mapArray[key] += Value
+			c.mapArray[key] = float32(c.mapArray[key].(float32)) + Value
 		}
 	case 6:
 		if c.teamside == -1 {
@@ -4909,13 +4909,13 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 		if c.teamside == -1 {
 			for i := MaxSimul * 2; i < MaxSimul*2+MaxAttachedChar; i += 1 {
 				if len(sys.chars[i]) > 0 {
-					sys.chars[i][0].mapArray[key] += Value
+					sys.chars[i][0].mapArray[key] = float32(sys.chars[i][0].mapArray[key].(float32)) + Value
 				}
 			}
 		} else {
 			for i := c.teamside; i < MaxSimul*2; i += 2 {
 				if len(sys.chars[i]) > 0 {
-					sys.chars[i][0].mapArray[key] += Value
+					sys.chars[i][0].mapArray[key] = float32(sys.chars[i][0].mapArray[key].(float32)) + Value
 				}
 			}
 		}

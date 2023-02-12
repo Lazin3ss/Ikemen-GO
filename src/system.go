@@ -1663,7 +1663,7 @@ func (s *System) fight() (reload bool) {
 	var ivar [len(s.chars)][]int32
 	var fvar [len(s.chars)][]float32
 	var dialogue [len(s.chars)][]string
-	var mapArray [len(s.chars)]map[string]float32
+	var mapArray [len(s.chars)]map[string]any
 	var remapSpr [len(s.chars)]RemapPreset
 	// Anonymous function to assign initial character values
 	copyVar := func(pn int) {
@@ -1681,7 +1681,7 @@ func (s *System) fight() (reload bool) {
 		}
 		copy(fvar[pn], s.chars[pn][0].fvar[:])
 		copy(dialogue[pn], s.chars[pn][0].dialogue[:])
-		mapArray[pn] = make(map[string]float32)
+		mapArray[pn] = make(map[string]any)
 		for k, v := range s.chars[pn][0].mapArray {
 			mapArray[pn][k] = v
 		}
@@ -1831,7 +1831,7 @@ func (s *System) fight() (reload bool) {
 					}
 				}
 				p[0].dialogue = []string{}
-				p[0].mapArray = make(map[string]float32)
+				p[0].mapArray = make(map[string]any)
 				for k, v := range p[0].mapDefault {
 					p[0].mapArray[k] = v
 				}
@@ -1879,7 +1879,7 @@ func (s *System) fight() (reload bool) {
 				copy(p[0].ivar[:], ivar[i])
 				copy(p[0].fvar[:], fvar[i])
 				copy(p[0].dialogue[:], dialogue[i])
-				p[0].mapArray = make(map[string]float32)
+				p[0].mapArray = make(map[string]any)
 				for k, v := range mapArray[i] {
 					p[0].mapArray[k] = v
 				}

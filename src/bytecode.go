@@ -797,10 +797,13 @@ func (BytecodeExp) le(v1 *BytecodeValue, v2 BytecodeValue) {
 	}
 }
 func (BytecodeExp) eq(v1 *BytecodeValue, v2 BytecodeValue) {
-	if ValueType(Min(int32(v1.t), int32(v2.t))) == VT_Float {
-		v1.SetB(v1.ToF() == v2.ToF())
-	} else {
-		v1.SetB(v1.ToI() == v2.ToI())
+	switch ValueType(Min(int32(v1.t), int32(v2.t))) {
+		case VT_Float:
+			v1.SetB(v1.ToF() == v2.ToF())
+		case VT_Int:
+			v1.SetB(v1.ToI() == v2.ToI())
+		case VT_String:
+			v1.SetB(v1.ToS() == v2.ToS())
 	}
 }
 func (BytecodeExp) ne(v1 *BytecodeValue, v2 BytecodeValue) {
@@ -1390,8 +1393,14 @@ func (be BytecodeExp) run_st(c *Char, i *int) {
 		v := sys.bcStack.Pop().ToF()
 		*sys.bcStack.Top() = c.sysFvarAdd(sys.bcStack.Top().ToI(), v)
 	case OC_st_map:
-		v := sys.bcStack.Pop().ToF()
-		sys.bcStack.Push(c.mapSet(sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))], v, 0))
+		bv := sys.bcStack.Pop()
+		switch bv.t {
+			case VT_Float:
+				sys.bcStack.Push(c.mapSet(sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))], bv.ToF(), 0))
+			case VT_String:
+				sys.bcStack.Push(bv)
+				c.mapArray[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]] = bv.ToS()
+		}	
 		*i += 4
 	}
 }
@@ -1600,60 +1609,59 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 	case OC_const_movement_down_friction_threshold:
 		sys.bcStack.PushF(c.gi().movement.down.friction_threshold * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_authorname:
-		sys.bcStack.PushB(c.gi().authorLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		sys.bcStack.PushS(c.gi().authorLow)
 		*i += 4
 	case OC_const_name:
-		sys.bcStack.PushB(c.gi().nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
-		*i += 4
+		sys.bcStack.PushS(c.gi().nameLow)
 	case OC_const_p2name:
 		p2 := c.p2()
-		sys.bcStack.PushB(p2 != nil && p2.gi().nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
-		*i += 4
+		if p2 != nil {
+			sys.bcStack.PushS(p2.gi().nameLow)
+		} else {
+			sys.bcStack.PushS("")
+		}
 	case OC_const_p3name:
 		p3 := c.partner(0, false)
-		sys.bcStack.PushB(p3 != nil && p3.gi().nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
-		*i += 4
+		if p3 != nil {
+			sys.bcStack.PushS(p3.gi().nameLow)
+		} else {
+			sys.bcStack.PushS("")
+		}
 	case OC_const_p4name:
 		p4 := sys.charList.enemyNear(c, 1, true, true, false)
-		sys.bcStack.PushB(p4 != nil && !(p4.scf(SCF_ko) && p4.scf(SCF_over)) &&
-			p4.gi().nameLow ==
-				sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-					unsafe.Pointer(&be[*i]))])
-		*i += 4
+		if p4 != nil && !(p4.scf(SCF_ko) && p4.scf(SCF_over)) {
+			sys.bcStack.PushS(p4.gi().nameLow)
+		} else {
+			sys.bcStack.PushS("")
+		}			
 	case OC_const_p5name:
 		p5 := c.partner(1, false)
-		sys.bcStack.PushB(p5 != nil && p5.gi().nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
-		*i += 4
+		if p5 != nil {
+			sys.bcStack.PushS(p5.gi().nameLow)
+		} else {
+			sys.bcStack.PushS("")
+		}
 	case OC_const_p6name:
 		p6 := sys.charList.enemyNear(c, 2, true, true, false)
-		sys.bcStack.PushB(p6 != nil && !(p6.scf(SCF_ko) && p6.scf(SCF_over)) &&
-			p6.gi().nameLow ==
-				sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-					unsafe.Pointer(&be[*i]))])
-		*i += 4
+		if p6 != nil && !(p6.scf(SCF_ko) && p6.scf(SCF_over)) {
+			sys.bcStack.PushS(p6.gi().nameLow)
+		} else {
+			sys.bcStack.PushS("")
+		}
 	case OC_const_p7name:
 		p7 := c.partner(2, false)
-		sys.bcStack.PushB(p7 != nil && p7.gi().nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
-		*i += 4
+		if p7 != nil {
+			sys.bcStack.PushS(p7.gi().nameLow)
+		} else {
+			sys.bcStack.PushS("")
+		}
 	case OC_const_p8name:
 		p8 := sys.charList.enemyNear(c, 3, true, true, false)
-		sys.bcStack.PushB(p8 != nil && !(p8.scf(SCF_ko) && p8.scf(SCF_over)) &&
-			p8.gi().nameLow ==
-				sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-					unsafe.Pointer(&be[*i]))])
-		*i += 4
+		if p8 != nil && !(p8.scf(SCF_ko) && p8.scf(SCF_over)) {
+			sys.bcStack.PushS(p8.gi().nameLow)
+		} else {
+			sys.bcStack.PushS("")
+		}
 	case OC_const_stagevar_info_name:
 		sys.bcStack.PushB(sys.stage.nameLow ==
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
@@ -1958,7 +1966,13 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_majorversion:
 		sys.bcStack.PushI(int32(c.gi().ver[0]))
 	case OC_ex_maparray:
-		sys.bcStack.PushF(c.mapArray[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]])
+		v := c.mapArray[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]]
+		switch v.(type) {
+			case float32:
+				sys.bcStack.PushF(v.(float32))
+			case string:
+				sys.bcStack.PushS(v.(string))
+		}
 		*i += 4
 	case OC_ex_max:
 		v2 := sys.bcStack.Pop()
@@ -7927,7 +7941,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	params := []interface{}{}
 	var lclscround float32 = 1.0
 	ts := NewTextSprite()
-	var sn int = -1
+	var str string = ""
 	var fflg bool
 	var fnt int = -1
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -7938,14 +7952,18 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			ts.layerno = int16(exp[0].evalI(c))
 		case text_params:
 			for _, e := range exp {
-				if bv := e.run(c); bv.t == VT_Float {
-					params = append(params, bv.ToF())
-				} else {
-					params = append(params, bv.ToI())
+				bv := e.run(c)
+				switch bv.t {
+					case VT_Float:
+						params = append(params, bv.ToF())
+					case VT_String:
+						params = append(params, bv.ToS())
+					default:
+						params = append(params, bv.ToI())
 				}
 			}
 		case text_text:
-			sn = int(exp[0].evalI(c))
+			str = exp[0].evalS(c)
 		case text_font:
 			fnt = int(exp[1].evalI(c))
 			fflg = exp[0].evalB(c)
@@ -7983,9 +8001,8 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		return true
 	})
 	// text assignment
-	spl := sys.stringPool[sys.workingState.playerNo].List
-	if sn >= 0 && sn < len(spl) {
-		ts.text = OldSprintf(spl[sn], params...)
+	if len(str) > 0 {
+		ts.text = OldSprintf(str, params...)
 	} else {
 		ts.text = OldSprintf("%v", params...)
 	}

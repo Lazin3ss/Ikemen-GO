@@ -3894,7 +3894,13 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "map", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.mapArray[strings.ToLower(strArg(l, 1))]))
+		switch sys.debugWC.mapArray[strings.ToLower(strArg(l, 1))].(type) {
+			case float32:
+				l.Push(lua.LNumber(sys.debugWC.mapArray[strings.ToLower(strArg(l, 1))].(float32)))
+			case string:
+				l.Push(lua.LString(sys.debugWC.mapArray[strings.ToLower(strArg(l, 1))].(string)))
+		}
+		
 		return 1
 	})
 	luaRegister(l, "memberno", func(*lua.LState) int {

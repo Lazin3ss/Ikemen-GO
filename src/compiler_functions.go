@@ -4249,23 +4249,8 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 		}); err != nil {
 			return err
 		}
-		if err := c.stateParam(is, "text", func(data string) error {
-			_else := false
-			if len(data) >= 2 && data[0] == '"' {
-				if i := strings.Index(data[1:], "\""); i >= 0 {
-					data, _ = strconv.Unquote(data)
-				} else {
-					_else = true
-				}
-			} else {
-				_else = true
-			}
-			if _else {
-				return Error("Not enclosed in \"")
-			}
-			sc.add(text_text, sc.iToExp(int32(sys.stringPool[c.playerNo].Add(data))))
-			return nil
-		}); err != nil {
+		if err := c.paramValue(is, sc, "text",
+			text_text, VT_String, 1, true); err != nil {
 			return err
 		}
 		if err := c.stateParam(is, "font", func(data string) error {

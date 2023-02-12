@@ -1044,7 +1044,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		bv = BytecodeValue{t: VT_String, v: float64(sys.stringPool[c.playerNo].Add(c.token))}
 		c.token = c.tokenizer(in)
-		print(c.token)
 		return bv, nil
 	}
 	_var := func(sys, f bool) error {
@@ -1118,15 +1117,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		return nil
 	}
 	nameSub := func(opc OpCode) error {
-		return eqne(func() error {
-			if err := text(); err != nil {
-				return err
-			}
-			out.append(OC_const_)
-			out.appendI32Op(opc, int32(sys.stringPool[c.playerNo].Add(
-				strings.ToLower(c.token))))
-			return nil
-		})
+		out.append(OC_const_, opc)
+		return nil
 	}
 	nameSubEx := func(opc OpCode) error {
 		return eqne(func() error {
@@ -3341,6 +3333,8 @@ func (c *Compiler) typedExp(ef expFunc, in *string,
 			bv.SetI(bv.ToI())
 		case VT_Bool:
 			bv.SetB(bv.ToB())
+		// case VT_String:
+			// bv.SetS(sys.stringPool[c.playerNo].List[int32(bv.v)])
 		}
 		be.appendValue(bv)
 	}
