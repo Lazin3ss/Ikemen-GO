@@ -65,6 +65,7 @@ const (
 	VT_Float
 	VT_Int
 	VT_Bool
+	VT_String
 	VT_SFalse
 )
 
@@ -79,6 +80,7 @@ const (
 	OC_int8
 	OC_int
 	OC_float
+	OC_string
 	OC_pop
 	OC_dup
 	OC_swap
@@ -566,6 +568,12 @@ func (bv BytecodeValue) ToB() bool {
 	}
 	return true
 }
+func (bv BytecodeValue) ToS() string {
+	if bv.IsSF() {
+		return ""
+	}
+	return sys.bcStringPool.List[int32(bv.v)]
+}
 func (bv *BytecodeValue) SetF(f float32) {
 	if math.IsNaN(float64(f)) {
 		*bv = BytecodeSF()
@@ -579,6 +587,9 @@ func (bv *BytecodeValue) SetI(i int32) {
 func (bv *BytecodeValue) SetB(b bool) {
 	bv.t = VT_Bool
 	bv.v = float64(Btoi(b))
+}
+func (bv *BytecodeValue) SetS(s string) {
+	*bv = BytecodeValue{VT_String, float64(sys.bcStringPool.Add(s))}
 }
 
 func bvNone() BytecodeValue {
@@ -596,6 +607,9 @@ func BytecodeInt(i int32) BytecodeValue {
 func BytecodeBool(b bool) BytecodeValue {
 	return BytecodeValue{VT_Bool, float64(Btoi(b))}
 }
+func BytecodeString(s string) BytecodeValue {
+	return BytecodeValue{VT_String, float64(sys.bcStringPool.Add(s))}
+}
 
 type BytecodeStack []BytecodeValue
 
@@ -604,6 +618,7 @@ func (bs *BytecodeStack) Push(bv BytecodeValue) { *bs = append(*bs, bv) }
 func (bs *BytecodeStack) PushI(i int32)         { bs.Push(BytecodeInt(i)) }
 func (bs *BytecodeStack) PushF(f float32)       { bs.Push(BytecodeFloat(f)) }
 func (bs *BytecodeStack) PushB(b bool)          { bs.Push(BytecodeBool(b)) }
+func (bs *BytecodeStack) PushS(s string)        { bs.Push(BytecodeString(s)) }
 func (bs BytecodeStack) Top() *BytecodeValue {
 	return &bs[len(bs)-1]
 }
@@ -662,6 +677,10 @@ func (be *BytecodeExp) appendValue(bv BytecodeValue) (ok bool) {
 		} else {
 			be.append(OC_int8, 0)
 		}
+	case VT_String:
+		be.append(OC_string)
+		s := int32(bv.v)
+		be.append((*(*[4]OpCode)(unsafe.Pointer(&s)))[:]...)
 	case VT_SFalse:
 		be.append(OC_int8, 0)
 	default:
@@ -1021,6 +1040,9 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			arr[3] = byte(be[i+3])
 			flo := Float32frombytes(arr)
 			sys.bcStack.PushF(flo)
+			i += 4
+		case OC_string:
+			sys.bcStack.PushS(sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[i]))])
 			i += 4
 		case OC_neg:
 			be.neg(sys.bcStack.Top())
@@ -2037,6 +2059,9 @@ func (be BytecodeExp) evalI(c *Char) int32 {
 }
 func (be BytecodeExp) evalB(c *Char) bool {
 	return be.run(c).ToB()
+}
+func (be BytecodeExp) evalS(c *Char) string {
+	return be.run(c).ToS()
 }
 
 type StateController interface {
@@ -5832,10 +5857,14 @@ func (sc displayToClipboard) Run(c *Char, _ []int32) bool {
 		switch id {
 		case displayToClipboard_params:
 			for _, e := range exp {
-				if bv := e.run(c); bv.t == VT_Float {
-					params = append(params, bv.ToF())
-				} else {
-					params = append(params, bv.ToI())
+				bv := e.run(c)
+				switch bv.t {
+					case VT_Float:
+						params = append(params, bv.ToF())
+					case VT_String:
+						params = append(params, bv.ToS())
+					default:
+						params = append(params, bv.ToI())
 				}
 			}
 		case displayToClipboard_text:
@@ -8218,5 +8247,6 @@ func (sb *StateBytecode) run(c *Char) (changeState bool) {
 		c.panic()
 	}
 	sys.bcVarStack.Clear()
+	sys.bcStringPool.Clear()
 	return
 }

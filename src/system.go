@@ -60,6 +60,7 @@ var sys = System{
 	loader:            *newLoader(),
 	numSimul:          [...]int32{2, 2}, numTurns: [...]int32{2, 2},
 	ignoreMostErrors:      true,
+	bcStringPool:          *NewStringPool(),
 	superpmap:             *newPalFX(),
 	stageList:             make(map[int32]*Stage),
 	wincnt:                wincntMap(make(map[string][]int32)),
@@ -162,6 +163,7 @@ type System struct {
 	stringPool              [MaxSimul*2 + MaxAttachedChar]StringPool
 	bcStack, bcVarStack     BytecodeStack
 	bcVar                   []BytecodeValue
+	bcStringPool            StringPool
 	workingChar             *Char
 	workingState            *StateBytecode
 	specialFlag             GlobalSpecialFlag
