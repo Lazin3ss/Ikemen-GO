@@ -4968,19 +4968,16 @@ func (c *Char) appendDialogue(s string, reset bool) {
 	c.dialogue = append(c.dialogue, s)
 }
 
-func (c *Char) appendToClipboard(pn, sn int, a ...interface{}) {
-	spl := sys.stringPool[pn].List
-	if sn >= 0 && sn < len(spl) {
-		for i, str := range strings.Split(OldSprintf(spl[sn], a...), "\n") {
-			if i == 0 && len(c.clipboardText) > 0 {
-				c.clipboardText[len(c.clipboardText)-1] += str
-			} else {
-				c.clipboardText = append(c.clipboardText, str)
-			}
+func (c *Char) appendToClipboard(text string, a ...interface{}) {
+	for i, str := range strings.Split(OldSprintf(text, a...), "\n") {
+		if i == 0 && len(c.clipboardText) > 0 {
+			c.clipboardText[len(c.clipboardText)-1] += str
+		} else {
+			c.clipboardText = append(c.clipboardText, str)
 		}
-		if len(c.clipboardText) > sys.clipboardRows {
-			c.clipboardText = c.clipboardText[len(c.clipboardText)-sys.clipboardRows:]
-		}
+	}
+	if len(c.clipboardText) > sys.clipboardRows {
+		c.clipboardText = c.clipboardText[len(c.clipboardText)-sys.clipboardRows:]
 	}
 }
 

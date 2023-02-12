@@ -5869,8 +5869,7 @@ func (sc displayToClipboard) Run(c *Char, _ []int32) bool {
 			}
 		case displayToClipboard_text:
 			crun.clipboardText = nil
-			crun.appendToClipboard(sys.workingState.playerNo,
-				int(exp[0].evalI(c)), params...)
+			crun.appendToClipboard(exp[0].evalS(c), params...)
 		case displayToClipboard_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -5899,8 +5898,7 @@ func (sc appendToClipboard) Run(c *Char, _ []int32) bool {
 				}
 			}
 		case displayToClipboard_text:
-			crun.appendToClipboard(sys.workingState.playerNo,
-				int(exp[0].evalI(c)), params...)
+			crun.appendToClipboard(exp[0].evalS(c), params...)
 		case displayToClipboard_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -7362,8 +7360,7 @@ func (sc printToConsole) Run(c *Char, _ []int32) bool {
 				}
 			}
 		case printToConsole_text:
-			sys.printToConsole(sys.workingState.playerNo,
-				int(exp[0].evalI(c)), params...)
+			sys.printToConsole(exp[0].evalS(c), params...)
 		}
 		return true
 	})
