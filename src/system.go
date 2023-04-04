@@ -1185,64 +1185,66 @@ func (s *System) action() {
 				s.winskipped = true
 			}
 			rs4t := -s.lifebar.ro.over_waittime
-			if s.winskipped || !s.sf(GSF_roundnotover) ||
+			if s.winskipped ||
 				s.intro >= rs4t-s.lifebar.ro.over_wintime {
 				s.intro--
-				if s.intro == rs4t-1 {
-					if s.waitdown > 0 {
-						for _, p := range s.chars {
-							if len(p) > 0 && !p[0].over() {
-								s.intro = rs4t
+				if !s.sf(GSF_roundnotover) {
+					if s.intro == rs4t-1 {
+						if s.waitdown > 0 {
+							for _, p := range s.chars {
+								if len(p) > 0 && !p[0].over() {
+									s.intro = rs4t
+								}
 							}
 						}
 					}
-				}
-				if s.waitdown <= 0 || s.intro < rs4t-s.lifebar.ro.over_wintime {
-					if s.waitdown >= 0 {
-						w := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
-						if !w[0] || !w[1] ||
-							s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
-							s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
-							s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
-							for i, win := range w {
-								if win {
-									s.lifebar.wi[i].add(s.winType[i])
-									if s.matchOver() && s.wins[i] >= s.matchWins[i] {
-										s.lifebar.wc[i].wins += 1
+					if s.waitdown <= 0 || s.intro < rs4t-s.lifebar.ro.over_wintime {
+						if s.waitdown >= 0 {
+							w := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
+							if !w[0] || !w[1] ||
+								s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
+								s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
+								s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
+								for i, win := range w {
+									if win {
+										s.lifebar.wi[i].add(s.winType[i])
+										if s.matchOver() && s.wins[i] >= s.matchWins[i] {
+											s.lifebar.wc[i].wins += 1
+										}
+									}
+								}
+							} else {
+								s.draws++
+							}
+						}
+						for _, p := range s.chars {
+							if len(p) > 0 {
+								//default life recovery, used only if externalized Lua implementaion is disabled
+								if len(sys.commonLua) == 0 && s.waitdown >= 0 && s.time > 0 && p[0].win() &&
+									p[0].alive() && !s.matchOver() &&
+									(s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns) {
+									p[0].life += int32((float32(p[0].lifeMax) *
+										float32(s.time) / 60) * s.turnsRecoveryRate)
+									if p[0].life > p[0].lifeMax {
+										p[0].life = p[0].lifeMax
+									}
+								}
+								if !p[0].scf(SCF_over) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
+									p[0].setSCF(SCF_over)
+									if p[0].win() {
+										p[0].selfState(180, -1, -1, 1, "")
+									} else if p[0].lose() {
+										p[0].selfState(170, -1, -1, 1, "")
+									} else {
+										p[0].selfState(175, -1, -1, 1, "")
 									}
 								}
 							}
-						} else {
-							s.draws++
 						}
+						s.waitdown = 0
 					}
-					for _, p := range s.chars {
-						if len(p) > 0 {
-							//default life recovery, used only if externalized Lua implementaion is disabled
-							if len(sys.commonLua) == 0 && s.waitdown >= 0 && s.time > 0 && p[0].win() &&
-								p[0].alive() && !s.matchOver() &&
-								(s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns) {
-								p[0].life += int32((float32(p[0].lifeMax) *
-									float32(s.time) / 60) * s.turnsRecoveryRate)
-								if p[0].life > p[0].lifeMax {
-									p[0].life = p[0].lifeMax
-								}
-							}
-							if !p[0].scf(SCF_over) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
-								p[0].setSCF(SCF_over)
-								if p[0].win() {
-									p[0].selfState(180, -1, -1, 1, "")
-								} else if p[0].lose() {
-									p[0].selfState(170, -1, -1, 1, "")
-								} else {
-									p[0].selfState(175, -1, -1, 1, "")
-								}
-							}
-						}
-					}
-					s.waitdown = 0
+					s.waitdown--
 				}
-				s.waitdown--
 			}
 		} else if s.intro < 0 {
 			s.intro = 0
@@ -1293,7 +1295,6 @@ func (s *System) action() {
 		if s.superanim != nil {
 			s.superanim.Action()
 		}
-		println(s.intro)
 		s.charList.action(x, &cvmin, &cvmax,
 			&highest, &lowest, &leftest, &rightest)
 		s.nomusic = s.sf(GSF_nomusic) && !sys.postMatchFlg
