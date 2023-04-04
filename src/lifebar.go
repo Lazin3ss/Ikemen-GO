@@ -2187,7 +2187,7 @@ func (ro *LifeBarRound) act() bool {
 			switch sys.finish {
 			case FT_KO:
 				ro.ko_top.Action()
-				f(&ro.ko, 2, 75)
+				f(&ro.ko, 2, ro.over_hittime)
 				for i := len(ro.ko_bg) - 1; i >= 0; i-- {
 					ro.ko_bg[i].Action()
 				}
@@ -2204,7 +2204,7 @@ func (ro *LifeBarRound) act() bool {
 					ro.to_bg[i].Action()
 				}
 			}
-			if sys.intro < -(ro.over_hittime + ro.over_waittime /*+ ro.over_wintime*/) {
+			if sys.intro < -(ro.over_waittime /*+ ro.over_wintime*/) {
 				wt := sys.winTeam
 				if wt < 0 {
 					wt = 0
