@@ -916,7 +916,7 @@ func (s *System) commandUpdate() {
 				(r.ss.no == 0 || r.ss.no == 11 || r.ss.no == 20 || r.ss.no == 52) {
 				r.turn()
 			}
-			if !r.sf(CSF_postroundinput) && s.roundCtrlEnd() && !s.roundWinTime() {
+			if !r.sf(CSF_postroundinput) && (r.scf(SCF_ctrlwait) || (s.roundCtrlEnd() && !s.roundWinTime())) {
 				r.setSF(CSF_noinput)
 			}
 			if r.inputOver() || r.sf(CSF_noinput) || (r.aiLevel() > 0 && !r.alive()) {
@@ -1202,9 +1202,9 @@ func (s *System) action() {
 					if s.intro == rs4t-1 {
 						for _, p := range s.chars {
 							if len(p) > 0 {
-								// Disable ctrl (once) and set "ctrl wait" flag
-								if p[0].scf(SCF_ctrl) && !p[0].scf(SCF_ctrlwait) && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L {
-									p[0].setCtrl(false)
+								// Set "ctrl wait" flag to stop char inputs post-over.waittime
+								// even when defeated ones aren't in an "over" state
+								if !p[0].scf(SCF_ctrlwait) && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L {
 									p[0].setSCF(SCF_ctrlwait)
 								}
 								// Freeze timer if any character is not ready to proceed yet
@@ -1212,6 +1212,14 @@ func (s *System) action() {
 									s.intro = rs4t
 								}
 							}
+						}
+					}
+				}
+				// Disable ctrl (once) at the first frame of roundstate 4
+				if s.intro == rs4t-1 {
+					for _, p := range s.chars {
+						if len(p) > 0 {
+							p[0].setCtrl(false)
 						}
 					}
 				}
