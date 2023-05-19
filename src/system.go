@@ -640,6 +640,9 @@ func (s *System) screenWidth() float32 {
 func (s *System) roundEnd() bool {
 	return s.intro < -s.lifebar.ro.over_hittime
 }
+func (s *System) roundCtrlEnd() bool {
+	return s.intro < -s.lifebar.ro.over_waittime
+}
 func (s *System) roundWinTime() bool {
 	return s.intro < -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_wintime)
 }
@@ -913,9 +916,7 @@ func (s *System) commandUpdate() {
 				(r.ss.no == 0 || r.ss.no == 11 || r.ss.no == 20 || r.ss.no == 52) {
 				r.turn()
 			}
-			if !r.sf(CSF_postroundinput) &&
-				s.intro <= -(s.lifebar.ro.over_waittime) &&
-				s.intro > -(s.lifebar.ro.over_waittime+s.lifebar.ro.over_wintime) {
+			if !r.sf(CSF_postroundinput) && s.roundCtrlEnd() && !s.roundWinTime() {
 				r.setSF(CSF_noinput)
 			}
 			if r.inputOver() || r.sf(CSF_noinput) || (r.aiLevel() > 0 && !r.alive()) {
@@ -1189,14 +1190,14 @@ func (s *System) action() {
 				inclWinCount()
 			}
 			// Check if player skipped win pose time
-			if s.tickFrame() && s.roundWinTime() && (s.anyButton() && !s.sf(GSF_roundnotskip)) {
+			if s.roundWinTime() && (s.anyButton() && !s.sf(GSF_roundnotskip)) {
 				//	s.intro = Min(s.intro, -(s.lifebar.ro.over_waittime +
 				//		s.lifebar.ro.over_time - s.lifebar.ro.start_waittime))
 				s.intro = Min(s.intro, -(s.lifebar.ro.over_time - s.lifebar.ro.start_waittime))
 				s.winskipped = true
 			}
 			rs4t := -s.lifebar.ro.over_waittime
-			if s.winskipped || s.intro >= rs4t-s.lifebar.ro.over_wintime {
+			if s.winskipped || !s.roundWinTime() {
 				if s.waitdown > 0 {
 					if s.intro == rs4t-1 {
 						for _, p := range s.chars {
