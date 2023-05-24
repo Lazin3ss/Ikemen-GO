@@ -640,9 +640,6 @@ func (s *System) screenWidth() float32 {
 func (s *System) roundEnd() bool {
 	return s.intro < -s.lifebar.ro.over_hittime
 }
-func (s *System) roundCtrlEnd() bool {
-	return s.intro < -s.lifebar.ro.over_waittime
-}
 func (s *System) roundWinTime() bool {
 	return s.intro < -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_wintime)
 }
@@ -916,7 +913,7 @@ func (s *System) commandUpdate() {
 				(r.ss.no == 0 || r.ss.no == 11 || r.ss.no == 20 || r.ss.no == 52) {
 				r.turn()
 			}
-			if !r.sf(CSF_postroundinput) && (r.scf(SCF_ctrlwait) || (s.roundCtrlEnd() && !s.roundWinTime())) {
+			if !r.sf(CSF_postroundinput) && r.scf(SCF_inputwait) {
 				r.setSF(CSF_noinput)
 			}
 			if r.inputOver() || r.sf(CSF_noinput) || (r.aiLevel() > 0 && !r.alive()) {
@@ -1196,27 +1193,30 @@ func (s *System) action() {
 				s.intro = Min(s.intro, -(s.lifebar.ro.over_time - s.lifebar.ro.start_waittime))
 				s.winskipped = true
 			}
-			rs4t := -s.lifebar.ro.over_waittime
+			rs4t := -(s.lifebar.ro.over_waittime+1)
 			if s.winskipped || !s.roundWinTime() {
 				if s.waitdown > 0 {
-					if s.intro == rs4t-1 {
+					if s.intro == rs4t {
 						for _, p := range s.chars {
 							if len(p) > 0 {
-								// Set "ctrl wait" flag to stop char inputs post-over.waittime
-								// even when defeated ones aren't in an "over" state
-								if !p[0].scf(SCF_ctrlwait) && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L {
-									p[0].setSCF(SCF_ctrlwait)
+								// Set inputwait flag to stop inputs until win pose time
+								if !p[0].scf(SCF_inputwait) {
+									p[0].setSCF(SCF_inputwait)
+								}
+								// Check if this character is ready to procced to roundstate 4
+								if p[0].scf(SCF_over) || (p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I &&
+									p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L) {
+									continue
 								}
 								// Freeze timer if any character is not ready to proceed yet
-								if !p[0].scf(SCF_ctrlwait) && !p[0].scf(SCF_over) {
-									s.intro = rs4t
-								}
+								s.intro = rs4t+1
+								break
 							}
 						}
 					}
 				}
 				// Disable ctrl (once) at the first frame of roundstate 4
-				if s.intro == rs4t-1 {
+				if s.intro == rs4t {
 					for _, p := range s.chars {
 						if len(p) > 0 {
 							p[0].setCtrl(false)
@@ -1256,7 +1256,7 @@ func (s *System) action() {
 							}
 							if !p[0].scf(SCF_over) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
 								p[0].setSCF(SCF_over)
-								p[0].unsetSCF(SCF_ctrlwait)
+								p[0].unsetSCF(SCF_inputwait)
 								if p[0].win() {
 									p[0].selfState(180, -1, -1, -1, "")
 								} else if p[0].lose() {
