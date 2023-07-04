@@ -3590,6 +3590,9 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			} else {
 				e.relativef = 1
 			}
+			if e.oldrelativef > 0 {
+				e.oldrelativef = e.relativef
+			}
 		case explod_vfacing:
 			if exp[0].evalI(c) < 0 {
 				e.vfacing = -1
@@ -3781,9 +3784,17 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 			switch id {
 			case explod_facing:
 				if exp[0].evalI(c) < 0 {
-					eachExpl(func(e *Explod) { e.relativef = -1 })
+					eachExpl(func(e *Explod) {
+						e.relativef = -1
+						e.oldrelativef = e.relativef
+					})
 				} else {
-					eachExpl(func(e *Explod) { e.relativef = 1 })
+					eachExpl(func(e *Explod) {
+						e.relativef = 1
+						if e.oldrelativef > 0 {
+							e.oldrelativef = e.relativef
+						}
+					})
 				}
 			case explod_vfacing:
 				if exp[0].evalI(c) < 0 {

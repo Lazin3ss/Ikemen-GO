@@ -991,6 +991,7 @@ type Explod struct {
 	relativePos         [2]float32
 	offset              [2]float32
 	relativef           int32
+	oldrelativef        int32
 	facing              float32
 	vfacing             float32
 	scale               [2]float32
@@ -1025,7 +1026,7 @@ type Explod struct {
 
 func (e *Explod) clear() {
 	*e = Explod{id: IErr, bindtime: 1, scale: [...]float32{1, 1}, removetime: -2,
-		postype: PT_P1, space: Space_none, relativef: 1, facing: 1, vfacing: 1, localscl: 1,
+		postype: PT_P1, space: Space_none, relativef: 1, oldrelativef: 1, facing: 1, vfacing: 1, localscl: 1,
 		projection: Projection_Orthographic,
 		window:     [4]float32{0, 0, 0, 0},
 		alpha:      [...]int32{-1, 0}, playerId: -1, bindId: -2, ignorehitpause: true}
@@ -1056,7 +1057,10 @@ func (e *Explod) setBind(bId int32) {
 // Initial pos setting based on postype and space. This function probably needs a heavy refactor.
 func (e *Explod) setPos(c *Char) {
 	pPos := func(c *Char) {
-		e.bindId, e.facing = c.id, c.facing*float32(e.relativef)
+		e.bindId = c.id
+		if e.facing > 0 {
+			e.facing = c.facing*float32(e.relativef)
+		}
 		e.relativePos[0] *= c.facing
 		if e.space == Space_screen {
 			e.offset[0] = e.relativePos[0] + c.pos[0]*c.localscl/e.localscl + c.offsetX()*c.localscl/e.localscl
@@ -1100,7 +1104,12 @@ func (e *Explod) setPos(c *Char) {
 				pPos(p2)
 			}
 		case PT_Front, PT_Back:
-			e.facing = c.facing * float32(e.relativef)
+			if e.facing > 0 {
+				e.facing = float32(e.relativef)
+				if e.postype == PT_Back {
+					e.facing *= c.facing
+				}
+			}
 			// front と back はバインドの都合で left か right になおす
 			// "Due to binding constraints, adjust the front and back to either left or right."
 			if c.facing > 0 && e.postype == PT_Front || c.facing < 0 && e.postype == PT_Back {
@@ -1117,25 +1126,33 @@ func (e *Explod) setPos(c *Char) {
 				// 1.1でも反映されてない模様
 				// "In the previous version, "front" does not reflect the character's orientation in facing."
 				// "It appears that it is still not reflected even in version 1.1."
-				e.facing = float32(e.relativef)
+				// e.facing = float32(e.relativef)
 				//}
 				e.postype = PT_Left
 				lPos()
 			}
 		case PT_Left:
-			e.facing = float32(e.relativef)
+			if e.facing > 0 {
+				e.facing = float32(e.relativef)
+			}
 			lPos()
 		case PT_Right:
-			e.facing = float32(e.relativef)
+			if e.facing > 0 {
+				e.facing = float32(e.relativef)
+			}
 			rPos()
 		case PT_None:
-			e.facing = float32(e.relativef)
+			if e.facing > 0 {
+				e.facing = float32(e.relativef)
+			}
 			e.offset[0] = e.relativePos[0]
 			e.offset[1] = e.relativePos[1]
 			if e.space == Space_screen {
 				 e.offset[0] -= float32(sys.gameWidth) / e.localscl / 2
 			}
 	}
+	e.relativef = 1
+	e.relativePos[0], e.relativePos[1] = 0, 0
 }
 func (e *Explod) matchId(eid, pid int32) bool {
 	return e.id >= 0 && e.playerId == pid && (eid < 0 || e.id == eid)
@@ -1280,7 +1297,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 				e.palfx.step()
 			}
 			e.oldPos = e.pos
-			e.newPos[0] = e.pos[0] + e.velocity[0]*e.facing*float32(e.relativef)
+			e.newPos[0] = e.pos[0] + e.velocity[0]*e.facing*float32(e.oldrelativef)
 			e.newPos[1] = e.pos[1] + e.velocity[1]
 			for i := range e.velocity {
 				e.velocity[i] += e.accel[i]
