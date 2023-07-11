@@ -232,6 +232,7 @@ type System struct {
 	shuttertime             int32
 	fadeintime              int32
 	fadeouttime             int32
+	wintime                 int32
 	projs                   [MaxSimul*2 + MaxAttachedChar][]Projectile
 	explods                 [MaxSimul*2 + MaxAttachedChar][]Explod
 	explDrawlist            [MaxSimul*2 + MaxAttachedChar][]int
@@ -641,7 +642,7 @@ func (s *System) roundEnd() bool {
 	return s.intro < -s.lifebar.ro.over_hittime
 }
 func (s *System) roundWinTime() bool {
-	return s.intro < -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_wintime)
+	return s.wintime < 0
 }
 func (s *System) roundOver() bool {
 	return s.intro < -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_time)
@@ -779,6 +780,7 @@ func (s *System) nextRound() {
 	s.shuttertime = 0
 	s.fadeintime = s.lifebar.ro.fadein_time
 	s.fadeouttime = s.lifebar.ro.fadeout_time
+	s.wintime = s.lifebar.ro.over_wintime
 	s.winskipped = false
 	s.intro = s.lifebar.ro.start_waittime + s.lifebar.ro.ctrl_time + 1
 	s.time = s.roundTime
@@ -1176,19 +1178,18 @@ func (s *System) action() {
 					}
 				}
 			}
-			if !s.sf(GSF_roundnotover) || s.intro != -(s.lifebar.ro.over_waittime+s.lifebar.ro.over_time-s.lifebar.ro.fadeout_time-1) {
-				s.intro--
-			}
+			rs4t := -s.lifebar.ro.over_waittime
+			s.intro--
 			if s.intro == -s.lifebar.ro.over_hittime && s.finish != FT_NotYet {
 				inclWinCount()
 			}
 			// Check if player skipped win pose time
 			if s.roundWinTime() && (s.anyButton() && !s.sf(GSF_roundnotskip)) {
-				s.intro = Min(s.intro, -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_time - s.lifebar.ro.fadeout_time))
+				s.intro = Min(s.intro, rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time)
 				s.winskipped = true
 			}
-			rs4t := -s.lifebar.ro.over_waittime
 			if s.winskipped || !s.roundWinTime() {
+				// Check if game can get into roundstate 4
 				if s.waitdown > 0 {
 					if s.intro == rs4t-1 {
 						for _, p := range s.chars {
@@ -1217,7 +1218,12 @@ func (s *System) action() {
 						}
 					}
 				}
-				if s.waitdown <= 0 || s.intro <= rs4t-s.lifebar.ro.over_wintime {
+				// Run wintime counter after getting into roundstate 4
+				if s.intro < rs4t && !s.roundWinTime() {
+					s.wintime--
+				}
+				// Set characters into win/lose poses, update win counters
+				if s.waitdown <= 0 || s.roundWinTime() {
 					if s.waitdown >= 0 {
 						w := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
 						if !w[0] || !w[1] ||
@@ -1264,6 +1270,10 @@ func (s *System) action() {
 					s.waitdown = 0
 				}
 				s.waitdown--
+			}
+			if !s.winskipped && s.sf(GSF_roundnotover) &&
+				s.intro == rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time {
+				s.intro++
 			}
 		} else if s.intro < 0 {
 			s.intro = 0
@@ -1533,13 +1543,13 @@ func (s *System) drawTop() {
 	fade := func(rect [4]int32, color uint32, alpha int32) {
 		FillRect(rect, color, alpha>>uint(Btoi(s.clsnDraw))+Btoi(s.clsnDraw)*128)
 	}
-	fadeout := sys.intro + sys.lifebar.ro.over_waittime + sys.lifebar.ro.over_time
-	if fadeout == s.fadeouttime-1 && len(sys.commonLua) > 0 && sys.matchOver() && !s.dialogueFlg {
-		for _, p := range sys.chars {
+	fadeout := s.intro + s.lifebar.ro.over_waittime + s.lifebar.ro.over_time
+	if fadeout == s.lifebar.ro.fadeout_time-1 && len(s.commonLua) > 0 && s.matchOver() && !s.dialogueFlg {
+		for _, p := range s.chars {
 			if len(p) > 0 {
 				if len(p[0].dialogue) > 0 {
-					sys.lifebar.ro.cur = 3
-					sys.dialogueFlg = true
+					s.lifebar.ro.cur = 3
+					s.dialogueFlg = true
 					break
 				}
 			}
@@ -1547,10 +1557,14 @@ func (s *System) drawTop() {
 	}
 	if s.fadeintime > 0 {
 		fade(s.scrrect, s.lifebar.ro.fadein_col, 256*s.fadeintime/s.lifebar.ro.fadein_time)
-		s.fadeintime--
-	} else if s.fadeouttime > 0 && fadeout < s.fadeouttime-1 && !s.dialogueFlg {
+		if s.tickFrame() {
+			s.fadeintime--
+		}
+	} else if s.fadeouttime > 0 && fadeout < s.lifebar.ro.fadeout_time-1 && !s.dialogueFlg {
 		fade(s.scrrect, s.lifebar.ro.fadeout_col, 256*(s.lifebar.ro.fadeout_time-s.fadeouttime)/s.lifebar.ro.fadeout_time)
-		s.fadeouttime--
+		if s.tickFrame() {
+			s.fadeouttime--
+		}
 	} else if s.clsnDraw && s.clsnDarken {
 		fade(s.scrrect, 0, 0)
 	}
