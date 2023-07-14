@@ -3534,6 +3534,7 @@ const (
 	explod_bindid
 	explod_space
 	explod_window
+	explod_postypeExists
 	explod_redirectid
 )
 
@@ -3739,6 +3740,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	remap := false
 	var f, vf float32 = 1, 1
 	sp, pos, vel, accel := Space_none, [2]float32{0, 0}, [2]float32{0, 0}, [2]float32{0, 0}
+	ptexists := false
 	eachExpl := func(f func(e *Explod)) {
 		for _, e := range expls {
 			f(e)
@@ -3761,6 +3763,8 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 			remap = true
 		case explod_id:
 			eid = exp[0].evalI(c)
+		case explod_postypeExists:
+			ptexists = true
 		default:
 			if len(expls) == 0 {
 				expls = crun.getExplods(eid)
@@ -3778,7 +3782,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				if exp[0].evalI(c) < 0 {
 					f = -1
 				}
-				if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+				if (c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0) && !ptexists {
 					eachExpl(func(e *Explod) {
 						e.relativef = f
 					})
@@ -3787,19 +3791,19 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				if exp[0].evalI(c) < 0 {
 					vf = -1
 				}
-				if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+				if (c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0) && !ptexists {
 					eachExpl(func(e *Explod) {
 						e.vfacing = vf
 					})
 				}
 			case explod_pos:
 				pos[0] = exp[0].evalF(c) * lclscround
-				if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+				if (c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0) && !ptexists {
 					eachExpl(func(e *Explod) { e.relativePos[0] = pos[0] })
 				}
 				if len(exp) > 1 {
 					pos[1] = exp[1].evalF(c) * lclscround
-					if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+					if (c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0) && !ptexists {
 						eachExpl(func(e *Explod) { e.relativePos[1] = pos[1] })
 					}
 				}
@@ -3807,60 +3811,59 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				rndx := (exp[0].evalF(c) / 2) * lclscround
 				rndx = RandF(-rndx, rndx)
 				pos[0] += rndx
-				if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+				if (c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0) && !ptexists {
 					eachExpl(func(e *Explod) { e.relativePos[0] += rndx })
 				}
 				if len(exp) > 1 {
 					rndy := (exp[1].evalF(c) / 2) * lclscround
 					rndy = RandF(-rndy, rndy)
 					pos[1] += rndy
-					if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+					if (c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0) && !ptexists {
 						eachExpl(func(e *Explod) { e.relativePos[1] += rndy })
 					}
 				}
 			case explod_velocity:
 				vel[0] = exp[0].evalF(c) * lclscround
-				if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+				if (c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0) && !ptexists {
 					eachExpl(func(e *Explod) { e.velocity[0] = vel[0] })
 				}
 				if len(exp) > 1 {
 					vel[1] = exp[1].evalF(c) * lclscround
-					if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+					if (c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0) && !ptexists {
 						eachExpl(func(e *Explod) { e.velocity[1] = vel[1] })
 					}
 				}
 			case explod_accel:
 				accel[0] = exp[0].evalF(c) * lclscround
-				if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+				if (c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0) && !ptexists {
 					eachExpl(func(e *Explod) { e.accel[0] = accel[0] })
 				}
 				if len(exp) > 1 {
 					accel[1] = exp[1].evalF(c) * lclscround
-					if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+					if (c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0) && !ptexists {
 						eachExpl(func(e *Explod) { e.accel[1] = accel[1] })
 					}
 				}
 			case explod_space:
 				sp = Space(exp[0].evalI(c))
-				if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+				if (c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0) && !ptexists {
 					eachExpl(func(e *Explod) { e.space = sp })
 				}
 			case explod_postype:
 				pt := PosType(exp[0].evalI(c))
 				eachExpl(func(e *Explod) {
+					// Reset explod
 					e.reset()
+					// Set declared values
 					e.postype = pt
-					// Non-ikemen characters update certain values only when postype is declared
-					if c.stCgi().ikemenver[0] == 0 && c.stCgi().ikemenver[1] == 0 {
-						e.relativef, e.vfacing = f, vf
-						e.relativePos, e.velocity, e.accel = pos, vel, accel
-						// In MUGEN 1.0, chars, by default, create explods on "stage" space
-						// Mugenversion 1.0 chars in MUGEN 1.1 don't carry this behavior, 
-						// though, in Ikemen GO, we make a compromise where 1.0 chars 
-						// will be able to "reset" space when not specified.
-						if sp != Space_none || c.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 0 {
-							e.space = sp
-						}
+					e.relativef, e.vfacing = f, vf
+					e.relativePos, e.velocity, e.accel = pos, vel, accel
+					// In MUGEN 1.0, chars, by default, create explods on "stage" space
+					// Mugenversion 1.0 chars in MUGEN 1.1 don't carry this behavior, 
+					// though, in Ikemen GO, we make a compromise where 1.0 chars 
+					// will be able to "reset" space when not specified.
+					if sp != Space_none || c.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 0 {
+						e.space = sp
 					}
 					e.setPos(crun)
 				})
