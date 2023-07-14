@@ -3555,10 +3555,6 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 						return false
 					}
 					e.id = 0
-					// Mugenversion 1.1 chars default postype to "None"
-					if crun.stCgi().ver[0] == 1 && crun.stCgi().ver[1] == 1 {
-						e.postype = PT_None
-					}
 				} else {
 					return false
 				}
@@ -3568,10 +3564,10 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 					return false
 				}
 				e.id = 0
-				// Mugenversion 1.1 chars default postype to "None"
-				if crun.stCgi().ver[0] == 1 && crun.stCgi().ver[1] == 1 {
-					e.postype = PT_None
-				}
+			}
+			// Mugenversion 1.1 chars default postype to "None"
+			if crun.stCgi().ver[0] == 1 && crun.stCgi().ver[1] == 1 {
+				e.postype = PT_None
 			}
 		}
 		switch id {
@@ -3858,7 +3854,11 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					if c.stCgi().ikemenver[0] == 0 && c.stCgi().ikemenver[1] == 0 {
 						e.relativef, e.vfacing = f, vf
 						e.relativePos, e.velocity, e.accel = pos, vel, accel
-						if sp != Space_none {
+						// In MUGEN 1.0, chars, by default, create explods on "stage" space
+						// Mugenversion 1.0 chars in MUGEN 1.1 don't carry this behavior, 
+						// though, in Ikemen GO, we make a compromise where 1.0 chars 
+						// will be able to "reset" space when not specified.
+						if sp != Space_none || c.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 0 {
 							e.space = sp
 						}
 					}
@@ -4047,16 +4047,16 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 		}
 		switch id {
 		case gameMakeAnim_pos:
-			e.offset[0] = exp[0].evalF(c) * lclscround
+			e.relativePos[0] = exp[0].evalF(c) * lclscround
 			if len(exp) > 1 {
-				e.offset[1] = exp[1].evalF(c) * lclscround
+				e.relativePos[1] = exp[1].evalF(c) * lclscround
 			}
 		case gameMakeAnim_random:
 			rndx := (exp[0].evalF(c) / 2) * lclscround
-			e.offset[0] += RandF(-rndx, rndx)
+			e.relativePos[0] += RandF(-rndx, rndx)
 			if len(exp) > 1 {
 				rndy := (exp[1].evalF(c) / 2) * lclscround
-				e.offset[1] += RandF(-rndy, rndy)
+				e.relativePos[1] += RandF(-rndy, rndy)
 			}
 		case gameMakeAnim_under:
 			e.ontop = !exp[0].evalB(c)
@@ -4068,8 +4068,8 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	if e == nil {
 		return false
 	}
-	e.offset[0] -= float32(crun.size.draw.offset[0])
-	e.offset[1] -= float32(crun.size.draw.offset[1])
+	e.relativePos[0] -= float32(crun.size.draw.offset[0])
+	e.relativePos[1] -= float32(crun.size.draw.offset[1])
 	e.setPos(crun)
 	crun.insertExplod(i)
 	return false

@@ -1003,15 +1003,12 @@ func loadStage(def string, main bool) (*Stage, error) {
 	ratio1 := float32(s.stageCamera.localcoord[0]) / float32(s.stageCamera.localcoord[1])
 	ratio2 := float32(sys.gameWidth) / 240
 	if ratio1 > ratio2 {
-		s.stageCamera.drawOffsetY =
-			MinF(float32(s.stageCamera.localcoord[1])*s.localscl*0.5*
-				(ratio1/ratio2-1), float32(Max(0, s.stageCamera.overdrawlow)))
+		s.stageCamera.drawOffsetY = ClampF(float32(s.stageCamera.overdrawlow), 0, float32(s.stageCamera.localcoord[1])*s.localscl*0.5*(ratio1/ratio2-1))
 	}
 	if !s.stageCamera.ytensionenable {
-		s.stageCamera.drawOffsetY += MinF(float32(s.stageCamera.boundlow), MaxF(0, float32(s.stageCamera.floortension)*s.stageCamera.verticalfollow)) * s.localscl
+		s.stageCamera.drawOffsetY +=  ClampF(float32(s.stageCamera.floortension)*s.stageCamera.verticalfollow, 0, float32(s.stageCamera.boundlow)) * s.localscl
 	} else {
-		s.stageCamera.drawOffsetY += MinF(float32(s.stageCamera.boundlow),
-			MaxF(0, (-26+(240/(float32(sys.gameWidth)/float32(s.stageCamera.localcoord[0])))-float32(s.stageCamera.tensionhigh)))) * s.localscl
+		s.stageCamera.drawOffsetY += ClampF((-26+(240/(float32(sys.gameWidth)/float32(s.stageCamera.localcoord[0])))-float32(s.stageCamera.tensionhigh)), 0, float32(s.stageCamera.boundlow)) * s.localscl
 	}
 	//TODO: test if it works reasonably close to mugen
 	if sys.gameWidth > s.stageCamera.localcoord[0]*3*320/(s.stageCamera.localcoord[1]*4) {
@@ -1027,6 +1024,7 @@ func loadStage(def string, main bool) (*Stage, error) {
 			//}
 		}
 	}
+	
 	s.mainstage = main
 	return s, nil
 }

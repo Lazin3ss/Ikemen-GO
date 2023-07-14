@@ -1,6 +1,7 @@
 package main
 
 import "math"
+import "fmt"
 
 type stageCamera struct {
 	startx         int32
@@ -90,6 +91,7 @@ func (c *Camera) Reset() {
 		c.boundH += float32(c.boundhigh) * c.localscl
 		c.screenZoff -= float32(c.boundhigh) * c.localscl
 	}
+	fmt.Println(c.boundLo)
 }
 func (c *Camera) Init() {
 	c.Reset()
