@@ -186,6 +186,8 @@ var identFragShader string
 func (r *Renderer) Init() {
 	sys.errLog.Printf("Using OpenGL %v (%v)",
 		gl.GetString(gl.VERSION), gl.GetString(gl.RENDERER))
+	fmt.Println("Using OpenGL ", gl.GetString(gl.VERSION), " (", gl.GetString(gl.RENDERER), ")")
+	fmt.Println("Shader ver: ", gl.GetString(gl.SHADING_LANGUAGE_VERSION))
 
 	r.postShaderSelect = make([]*ShaderProgram, 1+len(sys.externalShaderList))
 
