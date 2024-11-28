@@ -1106,6 +1106,23 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		c.token = c.tokenizer(in)
 		return bv, nil
 	}
+	text := func() error {
+		i := strings.Index(*in, "\"")
+		if c.token != "\"" || i < 0 {
+			return Error("Not enclosed in \"")
+		}
+		c.token = (*in)[:i]
+		*in = (*in)[i+1:]
+		return nil
+	}
+	if c.token == "\"" {
+		if err := text(); err != nil {
+			return bvNone(), err
+		}
+		bv = BytecodeValue{t: VT_String, v: float64(sys.stringPool[c.playerNo].Add(c.token))}
+		c.token = c.tokenizer(in)
+		return bv, nil
+	}
 	_var := func(sys, f bool) error {
 		_, err := c.oneArg(out, in, rd, true)
 		if err != nil {
@@ -1152,23 +1169,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		out.append(oc)
 		return nil
-	}
-	text := func() error {
-		i := strings.Index(*in, "\"")
-		if c.token != "\"" || i < 0 {
-			return Error("Not enclosed in \"")
-		}
-		c.token = (*in)[:i]
-		*in = (*in)[i+1:]
-		return nil
-	}
-	if c.token == "\"" {
-		if err := text(); err != nil {
-			return bvNone(), err
-		}
-		bv = BytecodeValue{t: VT_String, v: float64(sys.stringPool[c.playerNo].Add(c.token))}
-		c.token = c.tokenizer(in)
-		return bv, nil
 	}
 	eqne := func(f func() error) error {
 		not, err := c.checkEquality(in)

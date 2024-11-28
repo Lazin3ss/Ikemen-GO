@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -3286,30 +3285,9 @@ func (c *Compiler) displayToClipboardSub(is IniSection,
 	}); err != nil {
 		return err
 	}
-	b := false
-	if err := c.stateParam(is, "text", false, func(data string) error {
-		b = true
-		_else := false
-		if len(data) >= 2 && data[0] == '"' {
-			if i := strings.Index(data[1:], "\""); i >= 0 {
-				data, _ = strconv.Unquote(data)
-			} else {
-				_else = true
-			}
-		} else {
-			_else = true
-		}
-		if _else {
-			return Error("Not enclosed in \"")
-		}
-		sc.add(displayToClipboard_text,
-			sc.iToExp(int32(sys.stringPool[c.playerNo].Add(data))))
-		return nil
-	}); err != nil {
+	if err := c.paramValue(is, sc, "text",
+		displayToClipboard_text, VT_String, 1, true); err != nil {
 		return err
-	}
-	if !b {
-		return Error("Text parameter not specified")
 	}
 	return nil
 }
@@ -4845,23 +4823,8 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 		}); err != nil {
 			return err
 		}
-		if err := c.stateParam(is, "text", false, func(data string) error {
-			_else := false
-			if len(data) >= 2 && data[0] == '"' {
-				if i := strings.Index(data[1:], "\""); i >= 0 {
-					data, _ = strconv.Unquote(data)
-				} else {
-					_else = true
-				}
-			} else {
-				_else = true
-			}
-			if _else {
-				return Error("Not enclosed in \"")
-			}
-			sc.add(text_text, sc.iToExp(int32(sys.stringPool[c.playerNo].Add(data))))
-			return nil
-		}); err != nil {
+		if err := c.paramValue(is, sc, "text",
+			text_text, VT_String, 1, true); err != nil {
 			return err
 		}
 		if err := c.stateParam(is, "font", false, func(data string) error {

@@ -8869,16 +8869,19 @@ func (sc displayToClipboard) Run(c *Char, _ []int32) bool {
 		switch id {
 		case displayToClipboard_params:
 			for _, e := range exp {
-				if bv := e.run(c); bv.t == VT_Float {
-					params = append(params, bv.ToF())
-				} else {
-					params = append(params, bv.ToI())
+				bv := e.run(c)
+				switch bv.t {
+					case VT_Float:
+						params = append(params, bv.ToF())
+					case VT_String:
+						params = append(params, bv.ToS())
+					default:
+						params = append(params, bv.ToI())
 				}
 			}
 		case displayToClipboard_text:
 			crun.clipboardText = nil
-			crun.appendToClipboard(sys.workingState.playerNo,
-				int(exp[0].evalI(c)), params...)
+			crun.appendToClipboard(exp[0].evalS(c), params...)
 		case displayToClipboard_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -8900,15 +8903,18 @@ func (sc appendToClipboard) Run(c *Char, _ []int32) bool {
 		switch id {
 		case displayToClipboard_params:
 			for _, e := range exp {
-				if bv := e.run(c); bv.t == VT_Float {
-					params = append(params, bv.ToF())
-				} else {
-					params = append(params, bv.ToI())
+				bv := e.run(c)
+				switch bv.t {
+					case VT_Float:
+						params = append(params, bv.ToF())
+					case VT_String:
+						params = append(params, bv.ToS())
+					default:
+						params = append(params, bv.ToI())
 				}
 			}
 		case displayToClipboard_text:
-			crun.appendToClipboard(sys.workingState.playerNo,
-				int(exp[0].evalI(c)), params...)
+			crun.appendToClipboard(exp[0].evalS(c), params...)
 		case displayToClipboard_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -10311,15 +10317,18 @@ func (sc printToConsole) Run(c *Char, _ []int32) bool {
 		switch id {
 		case printToConsole_params:
 			for _, e := range exp {
-				if bv := e.run(c); bv.t == VT_Float {
-					params = append(params, bv.ToF())
-				} else {
-					params = append(params, bv.ToI())
+				bv := e.run(c)
+				switch bv.t {
+					case VT_Float:
+						params = append(params, bv.ToF())
+					case VT_String:
+						params = append(params, bv.ToS())
+					default:
+						params = append(params, bv.ToI())
 				}
 			}
 		case printToConsole_text:
-			sys.printToConsole(sys.workingState.playerNo,
-				int(exp[0].evalI(c)), params...)
+			sys.printToConsole(exp[0].evalS(c), params...)
 		}
 		return true
 	})
@@ -11194,18 +11203,19 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			ts.layerno = int16(exp[0].evalI(c))
 		case text_params:
 			for _, e := range exp {
-				if bv := e.run(c); bv.t == VT_Float {
-					params = append(params, bv.ToF())
-				} else {
-					params = append(params, bv.ToI())
+				bv := e.run(c)
+				switch bv.t {
+					case VT_Float:
+						params = append(params, bv.ToF())
+					case VT_String:
+						params = append(params, bv.ToS())
+					default:
+						params = append(params, bv.ToI())
 				}
 			}
 		case text_text:
-			sn := int(exp[0].evalI(c))
-			spl := sys.stringPool[sys.workingState.playerNo].List
-			if sn >= 0 && sn < len(spl) {
-				ts.text = OldSprintf(spl[sn], params...)
-			}
+			str := exp[0].evalS(c)
+			ts.text = OldSprintf(str, params...)
 		case text_font:
 			fnt = int(exp[1].evalI(c))
 			fflg := exp[0].evalB(c)
