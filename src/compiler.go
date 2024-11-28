@@ -1162,6 +1162,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		*in = (*in)[i+1:]
 		return nil
 	}
+	if c.token == "\"" {
+		if err := text(); err != nil {
+			return bvNone(), err
+		}
+		bv = BytecodeValue{t: VT_String, v: float64(sys.stringPool[c.playerNo].Add(c.token))}
+		c.token = c.tokenizer(in)
+		return bv, nil
+	}
 	eqne := func(f func() error) error {
 		not, err := c.checkEquality(in)
 		if err != nil {
