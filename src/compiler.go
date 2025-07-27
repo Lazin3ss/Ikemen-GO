@@ -30,6 +30,7 @@ type Compiler struct {
 	funcs            map[string]bytecodeFunction
 	funcUsed         map[string]bool
 	stateNo          int32
+	zssVersion       int32
 }
 
 func newCompiler() *Compiler {
@@ -4596,7 +4597,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		c.token = c.tokenizer(in)
-		if c.token == ":=" {
+		if c.zssVersion >= 200 && c.token == ":=" {
 			c.token = c.tokenizer(in)
 			bv2, err := c.expEqne(&be2, in)
 			if err != nil {
@@ -6495,7 +6496,7 @@ func (c *Compiler) scanStateDef(line *string, constants map[string]float32) (int
 	}
 	var err error
 	// StateDef using constants
-	if t == "const" {
+	if c.zssVersion >= 200 && t == "const" {
 		c.scan(line)
 		k := c.scan(line)
 		c.scan(line)
@@ -6525,7 +6526,7 @@ func (c *Compiler) scanStateDef(line *string, constants map[string]float32) (int
 func (c *Compiler) blockAttribSet(line *string, bl *StateBlock, sbc *StateBytecode,
 	inheritIhp, nestedInLoop bool) error {
 	// Inherit ignorehitpause/loop attr from parent block
-	if inheritIhp {
+	if c.zssVersion >= 200 && inheritIhp {
 		bl.ignorehitpause, bl.ctrlsIgnorehitpause = -1, true
 		// Avoid re-reading ignorehitpause
 		if c.token == "ignorehitpause" {
@@ -6604,11 +6605,17 @@ func (c *Compiler) subBlock(line *string, root bool,
 			return nil, err
 		}
 	case "switch":
+		if c.zssVersion < 200 {
+			return nil, c.wrongClosureToken()
+		}
 		compileMain = false
 		if err := c.switchBlock(line, bl, sbc, numVars); err != nil {
 			return nil, err
 		}
 	case "for", "while":
+		if c.zssVersion < 200 {
+			return nil, c.wrongClosureToken()
+		}
 		if err := c.loopBlock(line, root, bl, sbc, numVars); err != nil {
 			return nil, err
 		}
@@ -7136,6 +7143,8 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 		sys.ignoreMostErrors = oime
 	}(sys.ignoreMostErrors)
 	sys.ignoreMostErrors = false
+	//ZssVersion defaults to "200"
+	c.zssVersion = 200
 	c.block = nil
 	c.lines, c.i = SplitAndTrim(src, "\n"), 0
 	c.linechan = make(chan *string)
@@ -7187,6 +7196,22 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 	for {
 		if c.token == "" {
 			c.scan(&line)
+			// Read and set ZssVersion parameter
+			if c.token == "zssversion" {
+				c.scan(&line)
+				if c.token != "=" {
+					return Error("Missing '=' in ZssVersion declaration")
+				}
+				c.scan(&line)
+				c.zssVersion = Atoi(c.token)
+				if c.zssVersion == 0 {
+					return Error("ZssVersion must be a number greater than 0")
+				}
+				if c.zssVersion != 100 && c.zssVersion != 200 {
+					c.zssVersion = 200
+				}
+				c.scan(&line)
+			}
 			if c.token == "" {
 				break
 			}
