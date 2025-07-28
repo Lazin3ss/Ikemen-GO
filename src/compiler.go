@@ -1340,6 +1340,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	switch c.token {
 	case "":
 		return bvNone(), Error("Nothing assigned")
+	// Parse a raw string expression
+	case "\"":
+		if err := text(); err != nil {
+			return bvNone(), err
+		}
+		bv = BytecodeValue{vtype: VT_String, value: float64(sys.stringPool[c.playerNo].Add(c.token))}
+		c.token = c.tokenizer(in)
+		return bv, nil
 	// Redirections without arguments
 	case "root", "parent", "p2", "stateowner":
 		switch c.token {
@@ -7204,11 +7212,8 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 				}
 				c.scan(&line)
 				c.zssVersion = Atoi(c.token)
-				if c.zssVersion == 0 {
-					return Error("ZssVersion must be a number greater than 0")
-				}
-				if c.zssVersion != 100 && c.zssVersion != 200 {
-					c.zssVersion = 200
+				if c.zssVersion != 100 && c.zssVersion != 200 && c.zssVersion != 300 {
+					return Error("ZssVersion must be valid value")
 				}
 				c.scan(&line)
 			}

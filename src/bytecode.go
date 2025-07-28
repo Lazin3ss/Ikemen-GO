@@ -79,6 +79,7 @@ const (
 	VT_Float
 	VT_Int
 	VT_Bool
+	VT_String
 	VT_SFalse // Undefined
 )
 
@@ -94,6 +95,7 @@ const (
 	OC_int
 	OC_int64
 	OC_float
+	OC_string
 	OC_pop
 	OC_dup
 	OC_swap
@@ -984,28 +986,61 @@ func (bv BytecodeValue) ToF() float32 {
 	if bv.IsSF() {
 		return 0
 	}
-	return float32(bv.value)
+	if bv.vtype == VT_String {
+		return float32(Atof(sys.bcStringPool.List[int32(bv.value)]))
+	} else {
+		return float32(bv.value)
+	}
 }
 
 func (bv BytecodeValue) ToI() int32 {
 	if bv.IsSF() {
 		return 0
 	}
-	return int32(bv.value)
+	if bv.vtype == VT_String {
+		return Atoi(sys.bcStringPool.List[int32(bv.value)])
+	} else {
+		return int32(bv.value)
+	}
 }
 
 func (bv BytecodeValue) ToI64() int64 {
 	if bv.IsSF() {
 		return 0
 	}
-	return int64(bv.value)
+	if bv.vtype == VT_String {
+		return int64(Atoi(sys.bcStringPool.List[int32(bv.value)]))
+	} else {
+		return int64(bv.value)
+	}
 }
 
 func (bv BytecodeValue) ToB() bool {
-	if bv.IsSF() || bv.value == 0 {
+	if bv.IsSF() {
 		return false
 	}
-	return true
+	if bv.vtype == VT_String {
+		return len(sys.bcStringPool.List[int32(bv.value)]) != 0
+	} else {
+		return bv.value != 0
+	}
+}
+
+func (bv BytecodeValue) ToS() string {
+	if bv.IsSF() {
+		return ""
+	}
+	switch bv.vtype {
+		case VT_String:
+			return sys.bcStringPool.List[int32(bv.value)]
+		case VT_Float:
+			return Ftoa(bv.value)
+		case VT_Int:
+			return Itoa(int64(bv.value))
+		case VT_Bool:
+			return Btoa(bv.value != 0)
+	}
+	return ""
 }
 
 func (bv *BytecodeValue) SetF(f float32) {
@@ -1027,6 +1062,10 @@ func (bv *BytecodeValue) SetI64(i int64) {
 func (bv *BytecodeValue) SetB(b bool) {
 	bv.vtype = VT_Bool
 	bv.value = float64(Btoi(b))
+}
+
+func (bv *BytecodeValue) SetS(s string) {
+	*bv = BytecodeValue{VT_String, float64(sys.bcStringPool.Add(s))}
 }
 
 func bvNone() BytecodeValue {
@@ -1053,6 +1092,10 @@ func BytecodeBool(b bool) BytecodeValue {
 	return BytecodeValue{VT_Bool, float64(Btoi(b))}
 }
 
+func BytecodeString(s string) BytecodeValue {
+	return BytecodeValue{VT_String, float64(sys.bcStringPool.Add(s))}
+}
+
 type BytecodeStack []BytecodeValue
 
 func (bs *BytecodeStack) Clear() {
@@ -1077,6 +1120,10 @@ func (bs *BytecodeStack) PushF(f float32) {
 
 func (bs *BytecodeStack) PushB(b bool) {
 	bs.Push(BytecodeBool(b))
+}
+
+func (bs *BytecodeStack) PushS(s string) {
+	bs.Push(BytecodeString(s))
 }
 
 func (bs BytecodeStack) Top() *BytecodeValue {
@@ -1158,6 +1205,10 @@ func (be *BytecodeExp) appendValue(bv BytecodeValue) (ok bool) {
 		} else {
 			be.append(OC_int8, 0)
 		}
+	case VT_String:
+		be.append(OC_string)
+		s := int32(bv.value)
+		be.append((*(*[4]OpCode)(unsafe.Pointer(&s)))[:]...)
 	case VT_SFalse:
 		be.append(OC_int8, 0)
 	default:
@@ -1659,6 +1710,9 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			arr[3] = byte(be[i+3])
 			flo := Float32frombytes(arr)
 			sys.bcStack.PushF(flo)
+			i += 4
+		case OC_string:
+			sys.bcStack.PushS(sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[i]))])
 			i += 4
 		case OC_neg:
 			be.neg(sys.bcStack.Top())
@@ -3831,6 +3885,10 @@ func (be BytecodeExp) evalI64(c *Char) int64 {
 
 func (be BytecodeExp) evalB(c *Char) bool {
 	return be.run(c).ToB()
+}
+
+func (be BytecodeExp) evalS(c *Char) string {
+	return be.run(c).ToS()
 }
 
 type StateController interface {
@@ -13608,5 +13666,6 @@ func (sb *StateBytecode) run(c *Char) (changeState bool) {
 		c.panic()
 	}
 	sys.bcVarStack.Clear()
+	sys.bcStringPool.Clear()
 	return
 }

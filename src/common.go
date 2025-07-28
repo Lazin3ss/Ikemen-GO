@@ -200,6 +200,18 @@ func IsNumeric(s string) bool {
 	return err == nil
 }
 
+func Btoa(b bool) string {
+	return strconv.FormatBool(b)
+}
+
+func Itoa(i int64) string {
+	return strconv.FormatInt(i, 10)
+}
+
+func Ftoa(f float64) string {
+	return strconv.FormatFloat(f, 'f', -1, 32)
+}
+
 func Atoi(str string) int32 {
 	var n int64
 	str = strings.TrimSpace(str)
