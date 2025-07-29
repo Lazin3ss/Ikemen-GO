@@ -2145,7 +2145,7 @@ func (s *System) fight() (reload bool) {
 	var teamside [len(s.chars)]int
 	var cnsvar [len(s.chars)]map[int32]int32
 	var cnsfvar [len(s.chars)]map[int32]float32
-	var mapArray [len(s.chars)]map[string]float32
+	var mapArray [len(s.chars)]map[string]any
 	var dialogue [len(s.chars)][]string
 	var remapSpr [len(s.chars)]RemapPreset
 
@@ -2170,7 +2170,7 @@ func (s *System) fight() (reload bool) {
 		for k, v := range s.chars[pn][0].cnsfvar {
 			cnsfvar[pn][k] = v
 		}
-		mapArray[pn] = make(map[string]float32)
+		mapArray[pn] = make(map[string]any)
 		for k, v := range s.chars[pn][0].mapArray {
 			mapArray[pn][k] = v
 		}
@@ -2325,7 +2325,7 @@ func (s *System) fight() (reload bool) {
 					}
 				}
 				p[0].power = Clamp(p[0].power, 0, p[0].powerMax) // Because of previous partner in Turns mode
-				p[0].mapArray = make(map[string]float32)
+				p[0].mapArray = make(map[string]any)
 				for k, v := range p[0].mapDefault {
 					p[0].mapArray[k] = v
 				}
@@ -2376,7 +2376,7 @@ func (s *System) fight() (reload bool) {
 				}
 				p[0].cnssysvar = make(map[int32]int32) // SysVars never persist
 				p[0].cnssysfvar = make(map[int32]float32)
-				p[0].mapArray = make(map[string]float32)
+				p[0].mapArray = make(map[string]any)
 				for k, v := range mapArray[i] {
 					p[0].mapArray[k] = v
 				}

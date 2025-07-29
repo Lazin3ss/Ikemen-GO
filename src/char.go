@@ -2542,7 +2542,7 @@ type Char struct {
 	selectNo          int
 	inheritJuggle     int32
 	inheritChannels   int32
-	mapArray          map[string]float32
+	mapArray          map[string]any
 	mapDefault        map[string]float32
 	remapSpr          RemapPreset
 	clipboardText     []string
@@ -2757,7 +2757,7 @@ func (c *Char) clearCachedData() {
 	c.pushed = false
 	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 2
 	c.winquote = -1
-	c.mapArray = make(map[string]float32)
+	c.mapArray = make(map[string]any)
 	c.remapSpr = make(RemapPreset)
 }
 
@@ -5423,7 +5423,7 @@ func (c *Char) newHelper() (h *Char) {
 	h.helperId = 0
 	h.ownpal = false
 	h.initCnsVar()
-	h.mapArray = make(map[string]float32)
+	h.mapArray = make(map[string]any)
 	h.remapSpr = make(RemapPreset)
 
 	// Copy some parent parameters
@@ -7631,14 +7631,14 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 	case 0: // MapSet
 		c.mapArray[key] = Value
 	case 1: // MapAdd
-		c.mapArray[key] += Value
+		c.mapArray[key] = float32(c.mapArray[key].(float32)) + Value
 	case 2: // ParentMapSet
 		if p := c.parent(true); p != nil {
 			p.mapArray[key] = Value
 		}
 	case 3: // ParentMapAdd
 		if p := c.parent(true); p != nil {
-			p.mapArray[key] += Value
+			p.mapArray[key] = float32(p.mapArray[key].(float32)) + Value
 		}
 	case 4: // RootMapSet
 		if r := c.root(true); r != nil {
@@ -7646,7 +7646,7 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 		}
 	case 5: // RootMapAdd
 		if r := c.root(true); r != nil {
-			r.mapArray[key] += Value
+			r.mapArray[key] = float32(r.mapArray[key].(float32)) + Value
 		}
 	case 6: // TeamMapSet
 		if c.teamside == -1 {
@@ -7666,13 +7666,13 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 		if c.teamside == -1 {
 			for i := MaxSimul * 2; i < MaxPlayerNo; i += 1 {
 				if len(sys.chars[i]) > 0 {
-					sys.chars[i][0].mapArray[key] += Value
+					sys.chars[i][0].mapArray[key] = float32(sys.chars[i][0].mapArray[key].(float32)) + Value
 				}
 			}
 		} else {
 			for i := c.teamside; i < MaxSimul*2; i += 2 {
 				if len(sys.chars[i]) > 0 {
-					sys.chars[i][0].mapArray[key] += Value
+					sys.chars[i][0].mapArray[key] = float32(sys.chars[i][0].mapArray[key].(float32)) + Value
 				}
 			}
 		}

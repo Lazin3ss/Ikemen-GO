@@ -2086,8 +2086,14 @@ func (be BytecodeExp) run_st(c *Char, i *int) {
 		v := sys.bcStack.Pop().ToF()
 		*sys.bcStack.Top() = c.sysFvarAdd(sys.bcStack.Top().ToI(), v)
 	case OC_st_map:
-		v := sys.bcStack.Pop().ToF()
-		sys.bcStack.Push(c.mapSet(sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))], v, 0))
+		bv := sys.bcStack.Pop()
+		switch bv.vtype {
+			case VT_String:
+				sys.bcStack.Push(bv)
+				c.mapArray[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]] = bv.ToS()
+			default:
+				sys.bcStack.Push(c.mapSet(sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))], bv.ToF(), 0))
+		}
 		*i += 4
 	}
 }
@@ -3045,7 +3051,16 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_localcoord_y:
 		sys.bcStack.PushF(sys.cgi[c.playerNo].localcoord[1])
 	case OC_ex_maparray:
-		sys.bcStack.PushF(c.mapArray[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]])
+		v := c.mapArray[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]]
+		switch v.(type) {
+			case string:
+				sys.bcStack.PushS(v.(string))
+			case float32:
+				sys.bcStack.PushF(v.(float32))
+			default:
+				sys.bcStack.PushF(0)
+				
+		}
 		*i += 4
 	case OC_ex_max:
 		v2 := sys.bcStack.Pop()

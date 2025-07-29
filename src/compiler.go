@@ -471,7 +471,7 @@ func (c *Compiler) tokenizer(in *string) string {
 }
 
 // Same but case-sensitive
-func (*Compiler) tokenizerCS(in *string) string {
+func (c *Compiler) tokenizerCS(in *string) string {
 	*in = strings.TrimSpace(*in)
 	if len(*in) == 0 {
 		return ""
@@ -6371,12 +6371,14 @@ func (c *Compiler) readSentenceLine(line *string) (s string, assign bool,
 		case '#':
 			s, *line = (*line)[:i], "" // Ignore the rest as a comment
 		case '"':
-			tmp := (*line)[i+1:]
-			if _, err := c.readString(&tmp); err != nil {
-				return "", false, err
-			}
-			offset = len(*line) - len(tmp)
-			continue
+				tmp := (*line)[i+1:]
+				if c.zssVersion <= 200 {
+					if _, err := c.readString(&tmp); err != nil {
+						return "", false, err
+					}
+				}
+				offset = len(*line) - len(tmp)
+				continue
 		}
 		break
 	}
