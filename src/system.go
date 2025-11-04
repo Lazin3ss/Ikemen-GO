@@ -864,13 +864,10 @@ func (s *System) appendToConsole(str string) {
 	}
 }
 
-func (s *System) printToConsole(pn, sn int, a ...interface{}) {
-	spl := s.stringPool[pn].List
-	if sn >= 0 && sn < len(spl) {
-		for _, str := range strings.Split(OldSprintf(spl[sn], a...), "\n") {
-			fmt.Printf("%s\n", str)
-			s.appendToConsole(str)
-		}
+func (s *System) printToConsole(text string, a ...interface{}) {
+	for _, str := range strings.Split(OldSprintf(text, a...), "\n") {
+		fmt.Printf("%s\n", str)
+		s.appendToConsole(str)
 	}
 }
 

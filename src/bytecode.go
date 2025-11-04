@@ -9944,16 +9944,19 @@ func (sc displayToClipboard) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case displayToClipboard_params:
 			for _, e := range exp {
-				if bv := e.run(c); bv.vtype == VT_Float {
-					params = append(params, bv.ToF())
-				} else {
-					params = append(params, bv.ToI())
+				bv := e.run(c)
+				switch bv.vtype {
+					case VT_String:
+						params = append(params, bv.ToS())
+					case VT_Float:
+						params = append(params, bv.ToF())
+					default:
+						params = append(params, bv.ToI())
 				}
 			}
 		case displayToClipboard_text:
 			crun.clipboardText = nil
-			crun.appendToClipboard(sys.workingState.playerNo,
-				int(exp[0].evalI(c)), params...)
+			crun.appendToClipboard(exp[0].evalS(c), params...)
 		case displayToClipboard_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -9975,15 +9978,18 @@ func (sc appendToClipboard) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case displayToClipboard_params:
 			for _, e := range exp {
-				if bv := e.run(c); bv.vtype == VT_Float {
-					params = append(params, bv.ToF())
-				} else {
-					params = append(params, bv.ToI())
+				bv := e.run(c)
+				switch bv.vtype {
+					case VT_String:
+						params = append(params, bv.ToS())
+					case VT_Float:
+						params = append(params, bv.ToF())
+					default:
+						params = append(params, bv.ToI())
 				}
 			}
 		case displayToClipboard_text:
-			crun.appendToClipboard(sys.workingState.playerNo,
-				int(exp[0].evalI(c)), params...)
+			crun.appendToClipboard(exp[0].evalS(c), params...)
 		case displayToClipboard_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -10923,7 +10929,7 @@ func (sc assertCommand) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case assertCommand_name:
-			n = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			n = exp[0].evalS(c)
 		case assertCommand_buffertime:
 			bt = exp[0].evalI(c)
 		case assertCommand_redirectid:
@@ -10984,7 +10990,7 @@ func (sc dialogue) Run(c *Char, _ []int32) bool {
 		case dialogue_force:
 			force = exp[0].evalB(c)
 		case dialogue_text:
-			sys.chars[crun.playerNo][0].appendDialogue(string(*(*[]byte)(unsafe.Pointer(&exp[0]))), reset)
+			sys.chars[crun.playerNo][0].appendDialogue(exp[0].evalS(c), reset)
 			reset = false
 		case dialogue_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
@@ -11202,7 +11208,7 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 				snd[1] = exp[1].evalI(c)
 			}
 		case lifebarAction_text:
-			text = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			text = exp[0].evalS(c)
 		case lifebarAction_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -11231,7 +11237,7 @@ func (sc loadFile) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case loadFile_path:
-			path = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			path = exp[0].evalS(c)
 		case loadFile_saveData:
 			data = SaveData(exp[0].evalI(c))
 		case loadFile_redirectid:
@@ -11386,15 +11392,18 @@ func (sc printToConsole) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case printToConsole_params:
 			for _, e := range exp {
-				if bv := e.run(c); bv.vtype == VT_Float {
-					params = append(params, bv.ToF())
-				} else {
-					params = append(params, bv.ToI())
+				bv := e.run(c)
+				switch bv.vtype {
+					case VT_String:
+						params = append(params, bv.ToS())
+					case VT_Float:
+						params = append(params, bv.ToF())
+					default:
+						params = append(params, bv.ToI())
 				}
 			}
 		case printToConsole_text:
-			sys.printToConsole(sys.workingState.playerNo,
-				int(exp[0].evalI(c)), params...)
+			sys.printToConsole(exp[0].evalS(c), params...)
 		}
 		return true
 	})
@@ -12321,18 +12330,18 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			ts.layerno = int16(exp[0].evalI(c))
 		case text_params:
 			for _, e := range exp {
-				if bv := e.run(c); bv.vtype == VT_Float {
-					params = append(params, bv.ToF())
-				} else {
-					params = append(params, bv.ToI())
+				bv := e.run(c)
+				switch bv.vtype {
+					case VT_String:
+						params = append(params, bv.ToS())
+					case VT_Float:
+						params = append(params, bv.ToF())
+					default:
+						params = append(params, bv.ToI())
 				}
 			}
 		case text_text:
-			sn := int(exp[0].evalI(c))
-			spl := sys.stringPool[sys.workingState.playerNo].List
-			if sn >= 0 && sn < len(spl) {
-				ts.text = OldSprintf(spl[sn], params...)
-			}
+			ts.text = OldSprintf(exp[0].evalS(c), params...)
 		case text_font:
 			fnt = int(exp[1].evalI(c))
 			fflg := exp[0].evalB(c)
@@ -12895,7 +12904,14 @@ func (sc cameraCtrl) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case cameraCtrl_view:
-			sys.cam.View = CameraView(exp[0].evalI(c))
+			switch strings.ToLower(exp[0].evalS(c)) {
+				case "follow":
+					sys.cam.View = Follow_View
+				case "free":
+					sys.cam.View = Free_View
+				default:
+					sys.cam.View = Fighting_View
+			}
 			if sys.cam.View == Follow_View {
 				sys.cam.FollowChar = c
 			}
